@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Selector for the reorder action tile: focused = light, unfocused = dark.
+     Matches Google TV's Reorder and Add apps tile behavior. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true"  android:drawable="@drawable/reorder_tile_bg_focused" />
+    <item                               android:drawable="@drawable/reorder_tile_bg" />
+</selector>

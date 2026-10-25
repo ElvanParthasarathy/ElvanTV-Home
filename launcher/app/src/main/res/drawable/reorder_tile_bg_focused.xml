@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Focused state for Google TV Reorder tile: white/light squircle with 22dp curves -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FFE1F0FF" />
+    <corners android:radius="13dp" />
+</shape>

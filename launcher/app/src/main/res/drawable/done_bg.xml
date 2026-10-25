@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Done button in reorder mode, as on the stock launcher: flat dark pill, light blue when focused. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFE4F3FF" />
+            <corners android:radius="27dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FF151B22" />
+            <corners android:radius="27dp" />
+        </shape>
+    </item>
+</selector>
