@@ -247,7 +247,10 @@ final class ProfilePicker extends FrameLayout {
                 refreshPreview();
                 refreshShapes();
             });
-            v.setOnFocusChangeListener((x, f) -> x.animate().scaleX(f ? 1.15f : 1f).scaleY(f ? 1.15f : 1f).setDuration(120).start());
+            v.setOnFocusChangeListener((x, f) -> {
+                x.animate().scaleX(f ? 1.15f : 1f).scaleY(f ? 1.15f : 1f).setDuration(120).start();
+                x.invalidate();
+            });
             shapes.addView(v, new LinearLayout.LayoutParams((int) (54 * d), (int) (54 * d)) {{ leftMargin = rightMargin = (int) (4 * d); }});
         }
         shapes.setTag("shapes");
@@ -260,15 +263,17 @@ final class ProfilePicker extends FrameLayout {
                 @Override
                 protected void onDraw(Canvas canvas) {
                     Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                    float r = Math.min(getWidth(), getHeight()) / 2f - 5 * d;
+                    float cx = getWidth() / 2f;
+                    float cy = getHeight() / 2f;
+                    float r = Math.min(getWidth(), getHeight()) / 2f;
                     paint.setShader(ProfileAvatar.gradientShader(c, new RectF(0, 0, getWidth(), getHeight())));
-                    canvas.drawCircle(getWidth() / 2f, getHeight() / 2f, r, paint);
+                    canvas.drawCircle(cx, cy, r - 1.5f * d, paint);
                     paint.setShader(null);
-                    if (color == c) {
+                    if (isFocused() || isSelected() || color == c) {
                         paint.setStyle(Paint.Style.STROKE);
                         paint.setStrokeWidth(3 * d);
                         paint.setColor(0xFFFFFFFF);
-                        canvas.drawCircle(getWidth() / 2f, getHeight() / 2f, r + 1.5f * d, paint);
+                        canvas.drawCircle(cx, cy, r - 1.5f * d, paint);
                     }
                 }
             };
@@ -280,7 +285,16 @@ final class ProfilePicker extends FrameLayout {
                 colors.invalidate();
                 for (int k = 0; k < colors.getChildCount(); k++) colors.getChildAt(k).invalidate();
             });
-            v.setOnFocusChangeListener((x, f) -> x.animate().scaleX(f ? 1.15f : 1f).scaleY(f ? 1.15f : 1f).setDuration(120).start());
+            v.setOnFocusChangeListener((x, f) -> {
+                x.animate().scaleX(f ? 1.15f : 1f).scaleY(f ? 1.15f : 1f).setDuration(120).start();
+                if (f) {
+                    color = c;
+                    refreshPreview();
+                    refreshShapes();
+                    for (int k = 0; k < colors.getChildCount(); k++) colors.getChildAt(k).invalidate();
+                }
+                x.invalidate();
+            });
             colors.addView(v, new LinearLayout.LayoutParams((int) (40 * d), (int) (40 * d)) {{ leftMargin = rightMargin = (int) (6 * d); }});
         }
         col.addView(colors, lp(0, 12, 0, 0));

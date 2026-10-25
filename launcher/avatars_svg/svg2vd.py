@@ -102,8 +102,9 @@ def convert(svg_path):
         t = local(el.tag)
         if t not in ('path', 'circle', 'ellipse', 'rect', 'line', 'polygon'):
             continue
-        if t == 'circle' and not skipped_bg and el.attrib.get('r') == '60' and el.attrib.get('cx') == '64':
-            skipped_bg = True
+        # The background circles (the avatar's outer disc r=60 and inner circle r=48 centered at 64,64)
+        # are left out: the launcher draws its own clean gradient circle behind the character.
+        if t == 'circle' and el.attrib.get('cx') == '64' and el.attrib.get('cy') == '64' and el.attrib.get('r') in ('60', '48'):
             continue
         props = {}
         for cls in el.attrib.get('class', '').split():

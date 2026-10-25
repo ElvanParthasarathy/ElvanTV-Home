@@ -4,7 +4,6 @@
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="128dp" android:height="128dp"
     android:viewportWidth="128" android:viewportHeight="128">
-    <path android:pathData="M16,64 a48,48 0 1,0 96,0 a48,48 0 1,0 -96,0 Z" android:fillColor="#356cb6" android:fillAlpha="0.3" />
     <path android:pathData="M64,124a59.8,59.8,0,0,0,41.54-16.72c-1-22.43-3.94-55.49-12.65-75.18C88.06,21.18,76.74,13.88,64,13.88h0c-12.74,0-24.65,7-28.89,18.22C27.58,51.93,24.35,85.33,23,107.76A59.74,59.74,0,0,0,64,124Z" android:fillColor="#393c54" />
     <path android:pathData="M84.13,36.13c-3.52-8.48-10.48-12.82-19.74-13v0h-.78v0c-9.26.22-16.22,4.56-19.74,13-3.63,8.71-4.83,21.77,0,39.19,4.69,17,10.54,20.49,19.74,20.67h.78c9.2-.18,15-3.72,19.74-20.67C89,57.9,87.76,44.84,84.13,36.13Z" android:fillColor="#ffffff" />
     <path android:pathData="M77.58,52.83 L81.99,52.83" android:strokeColor="#393c54" android:strokeWidth="5.51" android:strokeLineCap="round" android:strokeMiterLimit="10" />
