@@ -13,6 +13,20 @@ final class Motion {
     /** The spring stops once it is within this many pixels of its target. */
     static final float REDUCED_MIN_CHANGE = 2f;
 
+    /**
+     * A device with little memory (a 1 GB stick on a Mali-450): decoration that redraws every frame while the screen is
+     * otherwise still, such as the pulsing focus ring, is left out. It cost 22 ms a frame there, 63 times a second.
+     */
+    static boolean lowEnd;
+
+    static void init(android.content.Context context) {
+        android.app.ActivityManager am = (android.app.ActivityManager) context.getSystemService(android.content.Context.ACTIVITY_SERVICE);
+        if (am == null) return;
+        android.app.ActivityManager.MemoryInfo info = new android.app.ActivityManager.MemoryInfo();
+        am.getMemoryInfo(info);
+        lowEnd = am.isLowRamDevice() || info.totalMem < 1500L * 1024 * 1024;
+    }
+
     private Motion() {
     }
 

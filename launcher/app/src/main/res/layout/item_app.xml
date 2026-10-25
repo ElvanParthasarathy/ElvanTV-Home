@@ -86,14 +86,19 @@
             android:visibility="gone" />
     </FrameLayout>
 
-    <TextView
+    <com.elvan.tvhome.ScrollTextView
         android:id="@+id/name"
-        android:layout_width="84dp"
+        android:layout_width="match_parent"
         android:layout_height="22dp"
+        android:layout_marginStart="-12dp"
+        android:layout_marginEnd="-12dp"
         android:layout_marginTop="8dp"
         android:gravity="center"
         android:singleLine="true"
         android:ellipsize="end"
+        android:scrollHorizontally="true"
+        android:requiresFadingEdge="horizontal"
+        android:fadingEdgeLength="6dp"
         android:textColor="#F2FFFFFF"
         android:textSize="13sp"
         android:fontFamily="@string/font_medium"

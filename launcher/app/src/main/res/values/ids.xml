@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Where TitleScroller keeps its state on a title. -->
+    <item name="title_scroller" type="id" />
+    <item name="fit_short" type="id" />
+    <item name="fit_listener" type="id" />
+</resources>

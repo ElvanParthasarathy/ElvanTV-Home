@@ -70,6 +70,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.widget.TextClock;
 import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -105,6 +106,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Sent by QuickSettingsActivity: open Launcher settings from here so Home rebuilds when they close. */
     /** The system input switcher, forwarded here by InputsRequestActivity while handle_view_inputs is on. */
     static final String ACTION_VIEW_INPUTS = "com.android.tv.action.VIEW_INPUTS";
+    /** A remapped button asked for the Settings panel (RemapService). */
+    static final String ACTION_OPEN_SETTINGS = "com.elvan.tvhome.OPEN_SETTINGS";
     /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
     static int COLUMNS = 4;
     private boolean rtlAppGrid;
@@ -400,6 +403,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         sourcePanelExtra = cfg.sourcePanelExtra;
         coocaaSources = cfg.coocaaSources;
 
+        Motion.init(this);
+        audioOutput = new AudioOutput(this, this::onAudioChanged);
+        audioOutput.open();
         root = findViewById(R.id.root);
         // The top bar comes first in the layout, so the window would give it the first focus and the app row
         // would take it a moment later: a pill lit up for a frame or two on every start. Closed until a tile (or
@@ -445,6 +451,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // still follows the dock.
         if (!cfg.dockTitle) hero.setVisibility(View.GONE);
         greeting = findViewById(R.id.greeting);
+        applyTimeOrder();
+        // Tamil (and other scripts with tall marks) make a text's line box taller than its digits, which left the date a
+        // little above the time. Re-centre on the digits whenever the clock row is laid out again.
+        for (int id : new int[]{R.id.clock, R.id.ampm, R.id.date}) {
+            findViewById(id).addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+                if (r - l != or - ol || b - t != ob - ot) root.post(this::alignClock);
+            });
+        }
         clockBlock = findViewById(R.id.leftBlock);
         greetingColor = greeting.getCurrentTextColor();
         if (getResources().getBoolean(R.bool.rtl_menu_bar)) {
@@ -502,6 +516,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         adapter = new AppAdapter(this, this, COLUMNS, cfg);
         dockApps = cfg.dockApps;
         fillDockLeavesSlots = false;
+        Profiles.Profile loadedFor = Profiles.active(this);
+        loadedProfileId = loadedFor == null ? null : loadedFor.id;   // whose arrangement the tiles below are
         Order savedOrder = Order.load(Order.file(this));
         adapter.setSavedOrder(Order.ranks(savedOrder, dockApps), Order.docked(savedOrder, dockApps));
         grid.setAdapter(adapter);
@@ -547,14 +563,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
 
         btnInputs = findViewById(R.id.btnInputs);
+        btnProfile = findViewById(R.id.btnProfile);
         View btnSettings = findViewById(R.id.btnSettings);
         btnInputs.setOnClickListener(v -> showInputs());
         btnWifi.setOnClickListener(v -> openNetworkPill());
         btnWifi.setOnLongClickListener(v -> {
-            open(systemIntent(Settings.ACTION_WIFI_SETTINGS));
+            openSliding(systemIntent(Settings.ACTION_WIFI_SETTINGS));
             return true;
         });
-        btnSettings.setOnClickListener(v -> showSettingsPanel());
+        btnSettings.setOnClickListener(v -> showSettingsPanel(0));
         btnReorder = findViewById(R.id.btnReorder);
         btnReorder.setOnClickListener(v -> toggleReorder());
         btnReorder.setVisibility(View.GONE);
@@ -620,13 +637,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 focusTile(Math.min(Math.max(0, lastFocused), Math.max(0, adapter.appCount() - 1)));
                 return true;
             }
-            int firstButton = btnInputs.getVisibility() == View.VISIBLE ? R.id.btnInputs : firstTopButton().getId();
+            int firstButton = R.id.btnProfile;
             int leftButton = rtlMenuBar ? R.id.btnSettings : firstButton;
             int rightButton = rtlMenuBar ? firstButton : R.id.btnSettings;
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return v.getId() == leftButton;
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton;
         };
         btnInputs.setOnKeyListener(pillKeys);
+        btnProfile.setOnKeyListener(pillKeys);
+        btnProfile.setOnClickListener(v -> showProfilePicker());
         btnWifi.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
         btnReorder.setOnKeyListener(pillKeys);
@@ -673,7 +692,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     .build(), vpnCallback);
         }
         // Not after recreate(): the launch intent survives it and would open the settings again.
-        if (savedInstanceState == null) openInputsIfAsked(getIntent());
+        if (savedInstanceState == null && !openInputsIfAsked(getIntent())) openSettingsIfAsked(getIntent());
+        startProfileFlow();
+        if (coverOnStart) {
+            coverOnStart = false;
+            final ViewGroup host = (ViewGroup) root.getParent();
+            final View cover = new View(this);
+            cover.setBackgroundColor(0xFF0D0D0F);   // the picker's own colour
+            host.addView(cover, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            root.postDelayed(() -> cover.animate().alpha(0f).setDuration(300)
+                    .withEndAction(() -> host.removeView(cover)).start(), 500);
+        }
     }
 
     /**
@@ -696,6 +725,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * open it again. Nothing to do when the TV has no inputs to list (the pill is hidden then).
      * top_menu hides the pill, so the list hangs under the gear there, as in showInputs().
      */
+    private boolean openSettingsIfAsked(Intent intent) {
+        if (intent == null || !ACTION_OPEN_SETTINGS.equals(intent.getAction())) return false;
+        setIntent(new Intent(Intent.ACTION_MAIN));
+        root.post(() -> {
+            if (!isFinishing() && !isDestroyed() && openPopup == null) showSettingsPanel(0);
+        });
+        return true;
+    }
+
     private boolean openInputsIfAsked(Intent intent) {
         if (intent == null || !ACTION_VIEW_INPUTS.equals(intent.getAction())) return false;
         setIntent(new Intent(Intent.ACTION_MAIN));
@@ -730,6 +768,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         if (openInputsIfAsked(intent)) return;
+        if (openSettingsIfAsked(intent)) return;
+        if (intent != null && intent.hasCategory(Intent.CATEGORY_HOME)) { reopenSettingsRow = -1; reopenAudioPage = false; reopenLeft = false; }   // Home: no panel
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
         grid.scrollToPosition(0);
         lastFocused = 0;
@@ -760,6 +800,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onResume() {
         super.onResume();
+        homeResumed = true;
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
             recreate();
@@ -789,6 +830,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 break;
         }
         if (openLiveTvAfterBoot()) return;
+        reopenPanelIfDue();
         updateGreeting();
         updateRace();
         // The network and Inputs pills keep their state while Home is in the background, and callbacks update them
@@ -945,6 +987,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onPause() {
         super.onPause();
+        homeResumed = false;
+        if (reopenSettingsRow >= 0) reopenLeft = true;
         // Coming back from an app, the window hands the focus to the first button in the layout before Home puts it
         // back on the tile: the top bar lit up for a moment. Close it again unless the owner left from it.
         ViewGroup bar = findViewById(R.id.topButtons);
@@ -963,7 +1007,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Nothing of ours stays on screen over another app; an undecided prompt simply returns next time.
         if (cardPrompt != null) cardPrompt.dismiss();
         if (appLibrary != null) appLibrary.close();
-        if (openPopup != null) openPopup.dismiss();
+        // The Settings panel waits for its owner: System settings and TV settings open over it, and coming back finds
+        // the panel as it was, with the row that opened them still selected.
+        if (!(openPopup instanceof SidePopup && ((SidePopup) openPopup).keepWhenLeaving)) closePopup(openPopup);
     }
 
     @Override
@@ -1002,9 +1048,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus) root.removeCallbacks(reopenRun);
         if (hasFocus) {
             // The window has placed its first focus (on the row, since the top bar was closed): open the bar again.
             root.post(this::openTopBar);
+            reopenPanelIfDue();
             if (libraryFocusPending && appLibrary == null) focusLibrary();
             showCardPrompt();
         }
@@ -1013,6 +1061,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (audioOutput != null) audioOutput.close();
         unregisterReceiver(packageReceiver);
         wallpaperPlayer.close();
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
@@ -1055,6 +1104,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (profilePicker != null) {
+            if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+                if (event.getAction() == KeyEvent.ACTION_UP) profilePicker.onBack();
+                return true;
+            }
+            return super.dispatchKeyEvent(event);
+        }
         if (handleSettingsKey(event)) return true;
         if (tileMenuEnabled && !reordering && openPopup == null && cardPrompt == null
                 && event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
@@ -1528,7 +1584,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public void onLibraryRequested() {
         if (appLibrary != null) appLibrary.close();
-        if (openPopup != null) openPopup.dismiss();
+        closePopup(openPopup);
         libraryFocusPending = false;
         libraryFromTopBar = false;
         appLibrary = new AppLibraryDialog(this, animations, reducedMotion, appLibrarySelection, adapter::containsPackage, () -> reloadApps(false), () -> {
@@ -1614,7 +1670,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         View item = (View) card.getParent();
         glowAnchor = card;
         showGlowOnly(position, r.exactCenterX(), r.exactCenterY());
-        revealRect.set(-(int) pad * 2, 0, item.getWidth() + (int) pad * 2, item.getHeight());
+        // Room on both sides, so the next app (and the one before) shows half cut at the screen edges, as on Google TV.
+        revealRect.set(-(int) (pad * 2 + 26 * density), 0, item.getWidth() + (int) pad * 2, item.getHeight());
         grid.requestChildRectangleOnScreen(item, revealRect, reducedMotion);
     }
 
@@ -1834,90 +1891,52 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     private void setAmbient(int color, float cx, float cy) {
         ambientColor = color;
-        int w = 480;
-        int h = 270;
-        Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bmp);
-        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
-
-        float normX = (root != null && root.getWidth() > 0) ? (cx / (float) root.getWidth()) : 0.5f;
-        float normY = (root != null && root.getHeight() > 0) ? (cy / (float) root.getHeight()) : 0.55f;
-        float bx = normX * w;
-        float by = normY * h;
         int rgb = color & 0x00FFFFFF;
-
         boolean isReorderTile = (rgb == 0x00666666);
-
-        if (!isReorderTile) {
-            // 1. Google TV ambient wash, measured on the stock launcher: neutral on the left, rising to the app's colour
-            // toward the right edge, a little stronger at the top of the screen than at the bottom.
-            int maxA = 0x1E;
-            int[] cols = new int[6];
-            float[] ramp = {0f, 0f, 0.45f, 0.80f, 1f, 1f};
-            for (int i = 0; i < cols.length; i++) cols[i] = (Math.round(maxA * ramp[i]) << 24) | rgb;
-            paint.setShader(new LinearGradient(0, 0, w, 0, cols,
-                    new float[]{0f, 0.15f, 0.40f, 0.70f, 0.86f, 1f}, Shader.TileMode.CLAMP));
-            canvas.drawRect(0, 0, w, h, paint);
-            Paint fade = new Paint();
-            fade.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_IN));
-            fade.setShader(new LinearGradient(0, 0, 0, h, 0xFF000000, 0x99000000, Shader.TileMode.CLAMP));
-            canvas.drawRect(0, 0, w, h, fade);
-        }
-
-        // 3. Focused Icon Core Halo, on its own small bitmap so it can follow the icon while the row scrolls.
-        // Rich, vibrant halo immediately hugging the focused icon border, softly feathering outward.
-        int hs = isReorderTile ? 192 : 96;
-        Bitmap haloBmp = Bitmap.createBitmap(hs, hs, Bitmap.Config.ARGB_8888);
-        Canvas haloCanvas = new Canvas(haloBmp);
-        Paint haloPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG);
-        float hc = hs / 2f;
-        if (isReorderTile) {
-            // Reorder focused: pure soft neutral white bloom hugging squircle, no colored wash
-            // Measured on the stock launcher: a soft white bloom that follows the tile's rounded square, about +45 levels
-            // at its edge and still +10 some 70 px out.
-            haloPaint.setColor(0xFFFFFFFF);
-            haloPaint.setAlpha(0xA0);
-            haloPaint.setMaskFilter(new BlurMaskFilter(38f, BlurMaskFilter.Blur.NORMAL));
-            float half = 20.6f;
-            haloCanvas.drawRoundRect(hc - half, hc - half, hc + half, hc + half, 8f, 8f, haloPaint);
+        Drawable current = ambient.getBackground();
+        GlowDrawable glow;
+        if (current instanceof GlowDrawable) {
+            glow = (GlowDrawable) current;
         } else {
-            // App focused: vivid, luminous halo framing the circular ring and blending into the atmosphere
-            float radius = 48f;
-            int c0 = (0x5C << 24) | rgb;
-            int c1 = (0x48 << 24) | rgb;
-            int c2 = (0x34 << 24) | rgb;
-            int c3 = (0x18 << 24) | rgb;
-            int c4 = (0x06 << 24) | rgb;
-            int c5 = 0x00000000 | rgb;
-            haloPaint.setShader(new RadialGradient(hc, hc, radius,
-                    new int[]{c0, c1, c2, c3, c4, c5},
-                    new float[]{0f, 0.33f, 0.52f, 0.72f, 0.88f, 1f},
-                    Shader.TileMode.CLAMP));
+            glow = new GlowDrawable();
+            ambient.setBackground(glow);
         }
-        if (!isReorderTile) haloCanvas.drawRect(0, 0, hs, hs, haloPaint);
-
-        float screenH = (root != null && root.getHeight() > 0) ? root.getHeight() : 720f;
-        GlowDrawable glow = new GlowDrawable(bmp, haloBmp, cx, cy, hs * screenH / h);
-        ambient.setBackground(glow);
+        glow.setLook(rgb, isReorderTile);
+        if (haloView == null) {
+            float screenH = getResources().getDisplayMetrics().heightPixels;
+            haloView = new HaloView(this, screenH);
+            ((ViewGroup) ambient).addView(haloView, new FrameLayout.LayoutParams(1, 1));
+            haloView.fitSize();
+        }
+        haloView.setLook(rgb, isReorderTile);
+        haloCx = cx;
+        haloCy = cy;
+        haloView.centreOn(cx, cy);
     }
 
+    /** The glow right behind the focused icon: a small view of its own that is moved with the icon. */
+    private HaloView haloView;
+    private float haloCx;
+    private float haloCy;
 
     /** Locks the halo to the focused icon's real on-screen position: the row scrolls, springs and zooms under it. */
     private void syncHalo() {
         View anchor = glowAnchor;
         if (anchor == null || !anchor.isAttachedToWindow() || !anchor.isFocused() || anchor.getWidth() == 0) return;
-        Drawable current = ambient.getBackground();
-        if (!(current instanceof GlowDrawable)) return;
+        if (haloView == null) return;
         glowRect.set(0, 0, anchor.getWidth(), anchor.getHeight());
         root.offsetDescendantRectToMyCoords(anchor, glowRect);
-        ((GlowDrawable) current).setHaloCenter(glowRect.exactCenterX(), glowRect.exactCenterY());
+        float x = glowRect.exactCenterX(), y = glowRect.exactCenterY();
+        if (Math.abs(x - haloCx) < 0.5f && Math.abs(y - haloCy) < 0.5f) return;
+        haloCx = x;
+        haloCy = y;
+        haloView.centreOn(x, y);
     }
 
     private void setAmbient(int color) {
-        Drawable current = ambient.getBackground();
-        if (current instanceof GlowDrawable) {
-            // A colour change keeps the halo where the focused icon is, whatever the row has scrolled by since.
-            setAmbient(color, ((GlowDrawable) current).haloX(), ((GlowDrawable) current).haloY());
+        // A colour change keeps the halo where the focused icon is, whatever the row has scrolled by since.
+        if (haloView != null) {
+            setAmbient(color, haloCx, haloCy);
             return;
         }
         float cx = root != null ? root.getWidth() / 2f : 0;
@@ -2644,7 +2663,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void openNetworkPill() {
         Intent i = vpnApp.isEmpty() ? null : getPackageManager().getLeanbackLaunchIntentForPackage(vpnApp);
         if (i == null && !vpnApp.isEmpty()) i = getPackageManager().getLaunchIntentForPackage(vpnApp);
-        open(i != null ? i : systemIntent(Settings.ACTION_WIFI_SETTINGS));
+        // The network screen (or the VPN app) the same way as Settings: in our own task, with the dim and fade. As a new
+        // task it left Home stopped behind it and the Mi TV Stick (Android 9) showed a black screen.
+        if (i != null) open(i);
+        else openSliding(systemIntent(Settings.ACTION_WIFI_SETTINGS));
     }
 
 
@@ -2726,6 +2748,22 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             startActivity(i);
+        } catch (ActivityNotFoundException | SecurityException e) {
+            Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * Opens a Settings screen from the Settings panel: it slides in from the right over the panel, which stays, and
+     * Home dims a little behind it, instead of the system's zoom for a new task (no animation at all on some TVs).
+     */
+    private void openSliding(Intent i) {
+        // In our own task, not a new one: a Settings screen that is a translucent panel only leaves the screen below it
+        // showing when both are in the same task. As a new task it got a stack of its own and Android stopped Home
+        // behind it, which showed as a black screen on the Mi TV Stick (Android 9). Home (singleTask) then closes it.
+        try {
+            startActivity(i);
+            if (animations && !reducedMotion) overridePendingTransition(R.anim.settings_open_enter, R.anim.settings_open_exit);
         } catch (ActivityNotFoundException | SecurityException e) {
             Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
         }
@@ -2948,22 +2986,154 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         rows.getChildAt(0).requestFocus();
     }
 
+    /** The side panel's window: leaving (Back, a row, a tap outside) slides it out instead of cutting it. */
+    private final class SidePopup extends PopupWindow {
+        private final View panel;
+        private boolean closing;
+        /** Back (the window dismisses itself on it) goes up one level instead of closing, while this is set. */
+        Runnable backHandler;
+        /** The panel stays open while another app is in front (see onPause), as the Settings panel does. */
+        boolean keepWhenLeaving;
+
+        SidePopup(View panel, int width, int height) {
+            super(panel, width, height, true);
+            this.panel = panel;
+        }
+
+        /** Closes the panel whatever its Back handler says: a row chosen, the launcher leaving. */
+        void close() {
+            // A row chosen: no slide-out, which looked awkward when choosing again and again. Back still slides it out.
+            backHandler = null;
+            closing = true;
+            super.dismiss();
+        }
+
+        @Override
+        public void dismiss() {
+            if (backHandler != null) {
+                backHandler.run();
+                return;
+            }
+            if (closing) return;
+            if (!isShowing() || reducedMotion || !animations || panel.getWindowToken() == null) {
+                super.dismiss();
+                return;
+            }
+            closing = true;
+            boolean rtl = getResources().getBoolean(R.bool.rtl_menu_bar);
+            panel.animate().cancel();
+            panel.animate().translationX((rtl ? -1 : 1) * panel.getWidth()).alpha(Motion.lowEnd ? 1f : 0f).setDuration(200)
+                    .setInterpolator(new android.view.animation.PathInterpolator(0.3f, 0f, 0.8f, 0.15f))
+                    .withEndAction(() -> SidePopup.super.dismiss()).start();
+        }
+    }
+
+    /** Closes a popup for good (a side panel's Back handler is skipped). */
+    private void closePopup(PopupWindow popup) {
+        if (popup == null) return;
+        if (popup instanceof SidePopup) ((SidePopup) popup).close();
+        else popup.dismiss();
+    }
+
     /** A full-height panel on the right edge of the screen (Google TV's side panel), dismissed by Back. */
     private PopupWindow sidePopup(View panel) {
-        PopupWindow popup = glassPopup(panel, (int) (360 * density));
-        popup.setHeight(ViewGroup.LayoutParams.MATCH_PARENT);
+        final SidePopup popup = new SidePopup(panel, (int) (360 * density), ViewGroup.LayoutParams.MATCH_PARENT);
+        popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));   // needed for Back to dismiss
+        popup.setOutsideTouchable(true);
+        popup.setAnimationStyle(0);
+        popup.setElevation(0f);
+        popup.setOnDismissListener(() -> {
+            if (openPopup == popup) openPopup = null;
+        });
+        openPopup = popup;
         return popup;
     }
 
-    /** Slides the side panel in from the right edge. */
+    /**
+     * Slides the side panel in from the right edge. The slide starts on the panel's first drawn frame: starting it
+     * when the window is only being added skips its first frames, which made it jump in.
+     */
     private void slideIn(PopupWindow popup, View panel) {
         boolean rtl = getResources().getBoolean(R.bool.rtl_menu_bar);
-        float from = (rtl ? -1 : 1) * 360 * density;
-        panel.setTranslationX(from);
-        panel.setAlpha(0f);
+        panel.setTranslationX((rtl ? -1 : 1) * 360 * density);
+        panel.setAlpha(Motion.lowEnd ? 1f : 0f);
         popup.showAtLocation(root, (rtl ? Gravity.START : Gravity.END) | Gravity.TOP, 0, 0);
-        panel.animate().translationX(0f).alpha(1f).setDuration(reducedMotion ? Motion.REDUCED_MS : 240)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+        panel.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                panel.getViewTreeObserver().removeOnPreDrawListener(this);
+                panel.animate().translationX(0f).alpha(1f).setDuration(reducedMotion || !animations ? 0 : 320)
+                        .setInterpolator(new android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)).start();
+                return true;
+            }
+        });
+    }
+
+    private void marquee(TextView text, boolean on) {
+        TitleScroller.set(text, on);
+    }
+
+    /** Fades a menu row's text and icons between light (off the pill) and dark (on it). */
+    private void tintRow(View row, boolean onPill) {
+        final TextView title = row.findViewById(R.id.title);
+        final TextView status = row.findViewById(R.id.status);
+        final ImageView icon = row.findViewById(R.id.icon);
+        final ImageView check = row.findViewById(R.id.check);
+        final int lightMain = 0xFFE8EAED, darkMain = 0xFF202124, lightDim = 0xFF9AA0A6, darkDim = 0xFF5F6368;
+        Object running = row.getTag(R.id.title);
+        if (running instanceof ValueAnimator) ((ValueAnimator) running).cancel();
+        Object last = row.getTag(R.id.status);
+        float from = last instanceof Float ? (Float) last : (onPill ? 0f : 1f);
+        float to = onPill ? 1f : 0f;
+        final ArgbEvaluator argb = new ArgbEvaluator();
+        ValueAnimator animator = ValueAnimator.ofFloat(from, to);
+        animator.setDuration(animations && !reducedMotion ? 200 : 0);
+        animator.addUpdateListener(a -> {
+            float t = (Float) a.getAnimatedValue();
+            row.setTag(R.id.status, t);
+            int main = (Integer) argb.evaluate(t, lightMain, darkMain);
+            int dim = (Integer) argb.evaluate(t, lightDim, darkDim);
+            title.setTextColor(main);
+            status.setTextColor(dim);
+            if (icon.getTag() == null) icon.setImageTintList(ColorStateList.valueOf(main));
+            check.setImageTintList(ColorStateList.valueOf(main));
+        });
+        row.setTag(R.id.title, animator);
+        animator.start();
+    }
+
+    /** Glides a side panel's highlight to the row that just took focus. */
+    private void moveHighlight(LinearLayout rows, View row) {
+        if (!(rows.getParent() instanceof ViewGroup)) return;
+        final View highlight = ((ViewGroup) rows.getParent()).findViewById(R.id.highlight);
+        if (highlight == null) return;
+        if (row.getHeight() == 0) {
+            row.post(() -> {
+                if (row.hasFocus() || row.isFocused()) moveHighlight(rows, row);
+            });
+            return;
+        }
+        ViewGroup.LayoutParams lp = highlight.getLayoutParams();
+        if (lp.height != row.getHeight()) {
+            lp.height = row.getHeight();
+            highlight.setLayoutParams(lp);
+        }
+        float y = row.getTop();
+        // The text turns dark on the pill and light off it in step with the pill, not ahead of it: switched at once,
+        // the old row's light text sat on the light pill (and the new row's dark text on the dark panel) for the
+        // length of the glide, and both vanished.
+        View previous = (View) highlight.getTag(R.id.rowsHost);
+        if (previous != null && previous != row) tintRow(previous, false);
+        tintRow(row, true);
+        highlight.setTag(R.id.rowsHost, row);
+        highlight.animate().cancel();
+        if (highlight.getAlpha() == 0f) {
+            highlight.setTranslationY(y);
+            highlight.animate().alpha(1f).setDuration(animations && !reducedMotion ? 160 : 0).start();
+        } else {
+            highlight.animate().translationY(y).setDuration(animations && !reducedMotion ? 240 : 0)
+                    .setInterpolator(new android.view.animation.PathInterpolator(0.2f, 0f, 0f, 1f)).start();
+        }
     }
 
     private PopupWindow glassPopup(View panel, int width) {
@@ -3019,14 +3189,56 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * One row of a Google TV style menu (item_menu): Material icon and label, a light pill when focused. The OK-up
      * that opened the menu (holding OK) must not activate its first row, so a row acts on an OK that went down on it.
      */
+    /** Each text that names the TV in full, with the short form (தொ.கா.) used only when the full one does not fit. */
+    private static final int[][] TV_NAMES = {
+            {R.string.language_system_default, R.string.language_system_default_short},
+            {R.string.settings_tv, R.string.settings_tv_short},
+            {R.string.audio_tv_speaker, R.string.audio_tv_speaker_short},
+            {R.string.live_tv, R.string.live_tv_short}};
+
+    /** Sets the text; if it is one of the TV_NAMES it is shown in full when it fits its place and short when it would be cut. */
+    private void fitTv(TextView tv, CharSequence text) {
+        tv.setText(text);
+        tv.setTag(R.id.fit_short, null);
+        for (int[] pair : TV_NAMES) {
+            if (!getString(pair[0]).contentEquals(text) && !getString(pair[1]).contentEquals(text)) continue;
+            tv.setTag(R.id.fit_short, pair);
+            if (tv.getTag(R.id.fit_listener) == null) {
+                tv.setTag(R.id.fit_listener, Boolean.TRUE);
+                tv.addOnLayoutChangeListener((v, l, tp, r, b, ol, ot, or, ob) -> {
+                    if (r - l != or - ol) tv.post(() -> applyFit(tv));
+                });
+            }
+            applyFit(tv);
+            return;
+        }
+    }
+
+    private void applyFit(TextView tv) {
+        int[] pair = (int[]) tv.getTag(R.id.fit_short);
+        if (pair == null) return;
+        String full = getString(pair[0]);
+        int room = tv.getWidth() - tv.getPaddingLeft() - tv.getPaddingRight();
+        String pick = room <= 0 || tv.getPaint().measureText(full) <= room ? full : getString(pair[1]);
+        if (!pick.contentEquals(tv.getText())) tv.setText(pick);
+    }
+
     private View addMenuRow(LinearLayout rows, PopupWindow popup, int iconRes, CharSequence title, Runnable action) {
+        return addMenuRow(rows, popup, iconRes, title, action, true);
+    }
+
+    /**
+     * closes false: the panel is not closed when the row is chosen (the action changes what the panel shows).
+     */
+    private View addMenuRow(LinearLayout rows, PopupWindow popup, int iconRes, CharSequence title, Runnable action,
+                            boolean closes) {
         View row = getLayoutInflater().inflate(R.layout.item_menu, rows, false);
         ImageView icon = row.findViewById(R.id.icon);
         if (iconRes != 0) icon.setImageResource(iconRes);
         else icon.setVisibility(View.GONE);
-        ((TextView) row.findViewById(R.id.title)).setText(title);
+        fitTv(row.findViewById(R.id.title), title);
         row.setOnClickListener(v -> {
-            popup.dismiss();
+            if (closes) closePopup(popup);
             action.run();
         });
         final boolean[] pressed = {false};
@@ -3039,10 +3251,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             boolean activate = pressed[0];
             pressed[0] = false;
             if (activate) {
-                popup.dismiss();
+                if (closes) closePopup(popup);
                 action.run();
             }
             return true;
+        });
+        row.setOnFocusChangeListener((v, focused) -> {
+            if (focused) moveHighlight(rows, v);
+            // A name too long for the panel scrolls once the row has been focused for a moment, then stops, like the
+            // stock launcher's titles; off the row it is cut with an ellipsis again.
+            marquee((TextView) v.findViewById(R.id.title), focused);
+            marquee((TextView) v.findViewById(R.id.status), focused);
         });
         rows.addView(row);
         return row;
@@ -3096,20 +3315,825 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * is the maker's own settings app (picture, sound), listed only on a TV that has one; Language is the launcher's
      * own language, which does not touch the TV's.
      */
-    private void showSettingsPanel() {
-        View panel = inflateSidePanel(getString(R.string.settings));
-        LinearLayout rows = panel.findViewById(R.id.rows);
+    private void showSettingsPanel(int focusRow) {
+        showSettingsPanel(focusRow, false);
+    }
+
+    /** audioPage: opens on the Sound output page itself (coming back from the Bluetooth pairing screen), Back from it to the list. */
+    private void showSettingsPanel(int focusRow, boolean audioPage) {
+        audioPage &= audioOutput != null && audioOutput.available();
+        View panel = inflateSidePanel(getString(audioPage ? R.string.audio_output : R.string.settings));
         PopupWindow popup = sidePopup(panel);
-        addInputRow(rows, popup, R.drawable.ic_settings, getString(R.string.settings_system), -1,
-                () -> open(systemIntent(Settings.ACTION_SETTINGS)));
-        final Intent tvSettings = tvSettingsIntent();
-        if (tvSettings != null) addInputRow(rows, popup, R.drawable.ic_menu_tv, getString(R.string.settings_tv), -1,
-                () -> open(tvSettings));
-        // The language list opens once this panel has closed.
-        addInputRow(rows, popup, R.drawable.ic_menu_language, getString(R.string.language_label), -1,
-                () -> root.post(this::showLanguagePanel));
+        if (audioPage) {
+            pageReturnIndex = focusRow;
+            fillAudioRows(panel, popup);
+        } else {
+            fillSettingsRows(panel, popup);
+        }
         slideIn(popup, panel);
-        rows.getChildAt(0).requestFocus();
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        int at = audioPage ? rows.getChildCount() - 1 : Math.max(0, Math.min(focusRow, rows.getChildCount() - 1));
+        rows.getChildAt(Math.max(0, at)).requestFocus();
+    }
+
+    /** The Bluetooth pairing screen is in front: Back reopens the Sound output page, not the Settings list. */
+    private boolean reopenAudioPage;
+
+    /**
+     * Back from a Settings screen: the panel that opened it comes back, sliding in again, on the same row. Only once Home
+     * has the window focus: TCL's TV settings is an activity that ends at once and leaves a floating window of its own
+     * on screen, so Home is resumed at that moment but is not in front, and opening our panel then put it behind TCL's.
+     * Called from onResume and again when the window gains the focus; whichever comes last, with the focus, opens it.
+     */
+    private void reopenPanelIfDue() {
+        if (reopenSettingsRow < 0 || !reopenLeft || !homeResumed || (reopenNeedsFocus && !hasWindowFocus()) || openPopup != null) return;
+        root.removeCallbacks(reopenRun);
+        // The wait is for the focus that comes right after the screen opened, before its floating window is up; once the
+        // owner has had that window and closed it, there is nothing to wait for.
+        boolean early = android.os.SystemClock.uptimeMillis() - reopenLaunchedAt < 2500;
+        if (reopenDelayMs > 0 && early) root.postDelayed(reopenRun, reopenDelayMs);
+        else root.post(reopenRun);
+    }
+
+    /** How long Home must keep the focus before the panel comes back: TCL's floating window appears a moment after Home resumes. */
+    private int reopenDelayMs;
+    /** Only for a screen that leaves a floating window of its own behind (TCL's TV settings); a normal screen reopens at once. */
+    private boolean reopenNeedsFocus;
+    /** Home has really been paused since the screen was opened: before that, a focus change is only our own popup closing. */
+    private boolean reopenLeft;
+    /** Between onResume and onPause. A focus event can still reach a paused Home (our own popup closing as the screen opens). */
+    private boolean homeResumed;
+    private long reopenLaunchedAt;
+
+    private final Runnable reopenRun = this::reopenNow;
+
+    private void reopenNow() {
+        if (reopenSettingsRow < 0 || !reopenLeft || !homeResumed || (reopenNeedsFocus && !hasWindowFocus()) || openPopup != null || isFinishing() || isDestroyed()) return;
+        final int row = reopenSettingsRow;
+        final boolean audioPage = reopenAudioPage;
+        reopenSettingsRow = -1;
+        reopenAudioPage = false;
+        reopenDelayMs = 0;
+        reopenNeedsFocus = false;
+        reopenLeft = false;
+        showSettingsPanel(row, audioPage);
+    }
+
+    /**
+     * The row of the Settings panel that opened a Settings screen, while that screen is in front: -1 when none. The
+     * panel closes as the screen opens; coming back with Back opens it again on that row (onResume). Home clears it
+     * (onNewIntent), so Home then shows no panel.
+     */
+    private int reopenSettingsRow = -1;
+
+    /** The Settings list: System settings, TV settings (when this TV has them) and Home language. */
+    private void fillSettingsRows(View panel, PopupWindow popup) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        addMenuRow(rows, popup, R.drawable.ic_settings, getString(R.string.settings_system), () -> {
+            reopenSettingsRow = 0;
+            reopenAudioPage = false;
+            reopenDelayMs = 0;
+            reopenNeedsFocus = false;
+            openSliding(systemIntent(Settings.ACTION_SETTINGS));
+        }).getLayoutParams().height = (int) (56 * density);
+        final Intent tvSettings = tvSettingsIntent();
+        if (tvSettings != null) addMenuRow(rows, popup, R.drawable.ic_menu_tv, getString(R.string.settings_tv), () -> {
+            reopenSettingsRow = 1;
+            reopenAudioPage = false;
+            reopenDelayMs = 900;
+            reopenNeedsFocus = true;
+            reopenLaunchedAt = android.os.SystemClock.uptimeMillis();
+            openSliding(tvSettings);
+        }).getLayoutParams().height = (int) (56 * density);
+        // Audio output: only on a TV with Bluetooth and a paired audio device.
+        if (audioOutput != null && audioOutput.available()) {
+            AudioOutput.Sink now = audioOutput.active();
+            final View[] self = new View[1];
+            View audioRow = addMenuRow(rows, popup, now == null ? R.drawable.ic_menu_speaker : R.drawable.ic_menu_bluetooth,
+                    getString(R.string.audio_output),
+                    () -> {
+                        markReturnRow(rows, self[0]);
+                        swapPanelContent(panel, getString(R.string.audio_output), true, () -> fillAudioRows(panel, popup));
+                    }, false);
+            self[0] = audioRow;
+            audioRow.getLayoutParams().height = (int) (56 * density);
+            TextView status = audioRow.findViewById(R.id.status);
+            fitTv(status, now == null ? getString(R.string.audio_tv_speaker) : now.name);
+            status.setVisibility(View.VISIBLE);
+        }
+        // Button remapper: a page inside this panel, like Sound output and Home language.
+        final View[] selfRemap = new View[1];
+        selfRemap[0] = addMenuRow(rows, popup, R.drawable.ic_menu_remote, getString(R.string.remap_title), () -> {
+            markReturnRow(rows, selfRemap[0]);
+            swapPanelContent(panel, getString(R.string.remap_title), true, () -> fillRemapRows(panel, popup));
+        }, false);
+        selfRemap[0].getLayoutParams().height = (int) (56 * density);
+        View profilesRow = addMenuRow(rows, popup, R.drawable.ic_menu_person, getString(R.string.profile_title),
+                this::showProfilePicker);
+        profilesRow.getLayoutParams().height = (int) (56 * density);
+        Profiles.Profile current = Profiles.active(this);
+        if (current != null) setRowStatus(profilesRow, current.name);
+        // Home language is part of this panel: the panel stays where it is and only its content changes.
+        final View[] selfLang = new View[1];
+        View languageRow = addMenuRow(rows, popup, R.drawable.ic_menu_language, getString(R.string.language_label),
+                () -> {
+                    markReturnRow(rows, selfLang[0]);
+                    swapPanelContent(panel, getString(R.string.language_label), true, () -> fillLanguageRows(panel, popup));
+                }, false);
+        selfLang[0] = languageRow;
+        languageRow.getLayoutParams().height = (int) (56 * density);
+        final View[] selfAbout = new View[1];
+        selfAbout[0] = addMenuRow(rows, popup, R.drawable.ic_menu_info, getString(R.string.about_title), () -> {
+            markReturnRow(rows, selfAbout[0]);
+            swapPanelContent(panel, getString(R.string.about_title), true, () -> fillAboutRows(panel, popup));
+        }, false);
+        selfAbout[0].getLayoutParams().height = (int) (56 * density);
+    }
+
+    /** Coming back from a list, the focus returns to the row that opened it, not to the top of the list. */
+    private void markReturnRow(LinearLayout rows, View row) {
+        for (int i = 0; i < rows.getChildCount(); i++) rows.getChildAt(i).setTag(R.id.check, null);
+        if (row != null) row.setTag(R.id.check, Boolean.TRUE);
+        // The list is built again when the page closes, so the row itself is gone by then: remember its place.
+        pageReturnIndex = row == null ? -1 : rows.indexOfChild(row);
+    }
+
+    /** Which row of the Settings list opened the page that is showing; Back puts the focus on it. */
+    private int pageReturnIndex = -1;
+
+    // ---- Button remapper ------------------------------------------------------------------------------------------
+    /** The row of the Settings list that opened the remapper, for Back and for coming back from Accessibility. */
+    private int remapSettingsIndex = -1;
+    private Runnable remapTimeout;
+
+    private void backToSettings(View panel, PopupWindow popup) {
+        RemapService.setCapture(null);
+        root.removeCallbacks(remapTimeout);
+        ((SidePopup) popup).backHandler = null;
+        pageReturnIndex = remapSettingsIndex;
+        swapPanelContent(panel, getString(R.string.settings), false, () -> fillSettingsRows(panel, popup));
+    }
+
+    private void backToRemap(View panel, PopupWindow popup) {
+        pageReturnIndex = -1;
+        swapPanelContent(panel, getString(R.string.remap_title), false, () -> fillRemapRows(panel, popup));
+    }
+
+    /** The remapper page: the buttons that have a job, a way to add one, and the permission it needs. */
+    private void fillRemapRows(View panel, PopupWindow popup) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final int h = (int) (56 * density);
+        if (pageReturnIndex >= 0) remapSettingsIndex = pageReturnIndex;
+        ((SidePopup) popup).backHandler = () -> backToSettings(panel, popup);
+        if (!RemapService.isEnabled(this)) {
+            View allow = addMenuRow(rows, popup, R.drawable.ic_menu_remote, getString(R.string.remap_allow), () -> {
+                if (RemapService.enable(this)) {
+                    root.postDelayed(() -> swapPanelContent(panel, getString(R.string.remap_title), true,
+                            () -> fillRemapRows(panel, popup)), 500);
+                    return;
+                }
+                // No way to switch it on from here: the TV's Accessibility screen, and back to the Settings list.
+                reopenSettingsRow = Math.max(0, remapSettingsIndex);
+                reopenAudioPage = false;
+                reopenDelayMs = 0;
+                reopenNeedsFocus = false;
+                openSliding(systemIntent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            }, false);
+            allow.getLayoutParams().height = h;
+            setRowStatus(allow, getString(R.string.remap_allow_hint));
+            return;
+        }
+        final View[] add = new View[1];
+        add[0] = addMenuRow(rows, popup, R.drawable.ic_menu_remote, getString(R.string.remap_add), () -> {
+            TextView title = add[0].findViewById(R.id.title);
+            title.setText(R.string.remap_waiting);
+            setRowStatus(add[0], getString(R.string.remap_waiting_hint));
+            root.removeCallbacks(remapTimeout);
+            remapTimeout = () -> {
+                RemapService.setCapture(null);
+                title.setText(R.string.remap_add);
+                setRowStatus(add[0], getString(R.string.remap_add_hint));
+            };
+            root.postDelayed(remapTimeout, 10000);
+            RemapService.setCapture((code, scan) -> {
+                root.removeCallbacks(remapTimeout);
+                RemapService.setCapture(null);
+                if (isFinishing() || isDestroyed() || openPopup != popup) return;
+                openRemapChooser(panel, popup, code, scan);
+            });
+        }, false);
+        add[0].getLayoutParams().height = h;
+        setRowStatus(add[0], getString(R.string.remap_add_hint));
+        for (ButtonMap.Entry e : ButtonMap.list(this)) {
+            View row = addMenuRow(rows, popup, R.drawable.ic_menu_remote, ButtonMap.keyName(e.keyCode, e.scanCode),
+                    () -> openRemapChooser(panel, popup, e.keyCode, e.scanCode), false);
+            row.getLayoutParams().height = h;
+            setRowStatus(row, remapActionLabel(e));
+        }
+    }
+
+    private String remapActionLabel(ButtonMap.Entry e) {
+        switch (e.action) {
+            case ButtonMap.ACTION_APP: return e.label.isEmpty() ? getString(R.string.remap_open_app) : e.label;
+            case ButtonMap.ACTION_HOME: return getString(R.string.remap_home);
+            case ButtonMap.ACTION_SETTINGS: return getString(R.string.remap_settings);
+            case ButtonMap.ACTION_INPUTS: return getString(R.string.remap_inputs);
+            case ButtonMap.ACTION_MEDIA:
+            case ButtonMap.ACTION_SYSTEM: return e.label;
+            default: return getString(R.string.remap_block);
+        }
+    }
+
+    private void openRemapChooser(View panel, PopupWindow popup, int code, int scan) {
+        swapPanelContent(panel, ButtonMap.keyName(code, scan), true, () -> fillRemapChooser(panel, popup, code, scan));
+    }
+
+    private void saveRemap(View panel, PopupWindow popup, int code, int scan, String action, String arg, String label) {
+        ButtonMap.set(this, code, scan, action, arg, label);
+        backToRemap(panel, popup);
+    }
+
+    /** What one button does: the choices, with a tick on the current one. */
+    private void fillRemapChooser(View panel, PopupWindow popup, int code, int scan) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final int h = (int) (56 * density);
+        ((SidePopup) popup).backHandler = () -> backToRemap(panel, popup);
+        ButtonMap.Entry cur = ButtonMap.find(this, code, scan);
+        String now = cur == null ? "" : cur.action;
+        View app = addMenuRow(rows, popup, R.drawable.ic_apps, getString(R.string.remap_open_app), () -> {
+            pageReturnIndex = -1;
+            swapPanelContent(panel, getString(R.string.remap_choose_app), true, () -> fillRemapApps(panel, popup, code, scan));
+        }, false);
+        if (cur != null && ButtonMap.ACTION_APP.equals(now)) setRowStatus(app, cur.label);
+        View home = addMenuRow(rows, popup, R.drawable.ic_menu_tv, getString(R.string.remap_home),
+                () -> saveRemap(panel, popup, code, scan, ButtonMap.ACTION_HOME, "", ""), false);
+        View settings = addMenuRow(rows, popup, R.drawable.ic_settings, getString(R.string.remap_settings),
+                () -> saveRemap(panel, popup, code, scan, ButtonMap.ACTION_SETTINGS, "", ""), false);
+        View inputs = null;
+        if (btnInputs != null && btnInputs.getVisibility() == View.VISIBLE) {
+            inputs = addMenuRow(rows, popup, R.drawable.ic_menu_tv, getString(R.string.remap_inputs),
+                    () -> saveRemap(panel, popup, code, scan, ButtonMap.ACTION_INPUTS, "", ""), false);
+        }
+        View media = addMenuRow(rows, popup, R.drawable.ic_menu_remote, getString(R.string.remap_media_group), () -> {
+            pageReturnIndex = -1;
+            swapPanelContent(panel, getString(R.string.remap_media_group), true,
+                    () -> fillRemapGroup(panel, popup, code, scan, ButtonMap.ACTION_MEDIA, ButtonMap.MEDIA_IDS, MEDIA_LABELS));
+        }, false);
+        View quick = addMenuRow(rows, popup, R.drawable.ic_settings, getString(R.string.remap_sys_group), () -> {
+            pageReturnIndex = -1;
+            swapPanelContent(panel, getString(R.string.remap_sys_group), true,
+                    () -> fillRemapGroup(panel, popup, code, scan, ButtonMap.ACTION_SYSTEM, ButtonMap.SYSTEM_IDS, SYSTEM_LABELS));
+        }, false);
+        if (cur != null && ButtonMap.ACTION_MEDIA.equals(now)) setRowStatus(media, cur.label);
+        if (cur != null && ButtonMap.ACTION_SYSTEM.equals(now)) setRowStatus(quick, cur.label);
+        View block = addMenuRow(rows, popup, R.drawable.ic_menu_remote, getString(R.string.remap_block),
+                () -> saveRemap(panel, popup, code, scan, ButtonMap.ACTION_BLOCK, "", ""), false);
+        View[] all = {app, home, settings, inputs, media, quick, block};
+        String[] actions = {ButtonMap.ACTION_APP, ButtonMap.ACTION_HOME, ButtonMap.ACTION_SETTINGS, ButtonMap.ACTION_INPUTS,
+                ButtonMap.ACTION_MEDIA, ButtonMap.ACTION_SYSTEM, ButtonMap.ACTION_BLOCK};
+        for (int i = 0; i < all.length; i++) {
+            if (all[i] == null) continue;
+            all[i].getLayoutParams().height = h;
+            if (actions[i].equals(now)) {
+                all[i].findViewById(R.id.check).setVisibility(View.VISIBLE);
+                all[i].setTag(R.id.check, Boolean.TRUE);
+            }
+        }
+        if (cur != null) {
+            View remove = addMenuRow(rows, popup, R.drawable.ic_menu_delete, getString(R.string.remap_remove),
+                    () -> saveRemap(panel, popup, code, scan, null, "", ""), false);
+            remove.getLayoutParams().height = h;
+        }
+    }
+
+    private static final int[] MEDIA_LABELS = {R.string.remap_media_play_pause, R.string.remap_media_next, R.string.remap_media_previous,
+            R.string.remap_media_rewind, R.string.remap_media_fast_forward, R.string.remap_media_stop, R.string.remap_media_vol_up,
+            R.string.remap_media_vol_down, R.string.remap_media_mute};
+    private static final int[] SYSTEM_LABELS = {R.string.remap_sys_wifi, R.string.remap_sys_bluetooth, R.string.remap_sys_display,
+            R.string.remap_sys_apps, R.string.remap_sys_storage, R.string.remap_sys_date, R.string.remap_sys_accessibility,
+            R.string.remap_sys_developer};
+
+    /** One group of jobs (media and volume, or the settings pages): the choices, with a tick on the current one. */
+    private void fillRemapGroup(View panel, PopupWindow popup, int code, int scan, String action, String[] ids, int[] labels) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final int h = (int) (56 * density);
+        ((SidePopup) popup).backHandler = () -> {
+            pageReturnIndex = -1;
+            swapPanelContent(panel, ButtonMap.keyName(code, scan), false, () -> fillRemapChooser(panel, popup, code, scan));
+        };
+        ButtonMap.Entry cur = ButtonMap.find(this, code, scan);
+        for (int i = 0; i < ids.length; i++) {
+            final String id = ids[i], label = getString(labels[i]);
+            View row = addMenuRow(rows, popup, 0, label, () -> saveRemap(panel, popup, code, scan, action, id, label), false);
+            row.getLayoutParams().height = h;
+            if (cur != null && action.equals(cur.action) && id.equals(cur.arg)) {
+                row.findViewById(R.id.check).setVisibility(View.VISIBLE);
+                row.setTag(R.id.check, Boolean.TRUE);
+            }
+        }
+    }
+
+    /** The apps to choose from for "Open an app": everything with a launcher entry except this launcher. */
+    private void fillRemapApps(View panel, PopupWindow popup, int code, int scan) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final int h = (int) (56 * density);
+        ((SidePopup) popup).backHandler = () -> {
+            pageReturnIndex = -1;
+            swapPanelContent(panel, ButtonMap.keyName(code, scan), false, () -> fillRemapChooser(panel, popup, code, scan));
+        };
+        PackageManager pm = getPackageManager();
+        java.util.Map<String, String> apps = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        java.util.Map<String, String> byLabel = new java.util.HashMap<>();
+        for (String category : new String[]{Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
+            for (ResolveInfo ri : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(category), 0)) {
+                String pkg = ri.activityInfo.packageName;
+                if (pkg.equals(getPackageName()) || byLabel.containsValue(pkg)) continue;
+                String label = String.valueOf(ri.loadLabel(pm));
+                while (apps.containsKey(label)) label = label + " ";
+                apps.put(label, pkg);
+                byLabel.put(label, pkg);
+            }
+        }
+        ButtonMap.Entry cur = ButtonMap.find(this, code, scan);
+        for (java.util.Map.Entry<String, String> a : apps.entrySet()) {
+            final String label = a.getKey().trim(), pkg = a.getValue();
+            View row = addMenuRow(rows, popup, 0, label,
+                    () -> saveRemap(panel, popup, code, scan, ButtonMap.ACTION_APP, pkg, label), false);
+            row.getLayoutParams().height = h;
+            if (cur != null && ButtonMap.ACTION_APP.equals(cur.action) && pkg.equals(cur.arg)) {
+                row.findViewById(R.id.check).setVisibility(View.VISIBLE);
+                row.setTag(R.id.check, Boolean.TRUE);
+            }
+        }
+    }
+
+    // ---- profiles --------------------------------------------------------------------------------------------------
+    /** Set once a profile was chosen in this process: the picker opens on every start of the launcher, not on every Home press. */
+    private static boolean profileChosen;
+    /** Choosing another profile rebuilt the screen: the new one starts under a cover that fades away once it is drawn. */
+    private static boolean coverOnStart;
+    /** The profile whose app arrangement this screen was built with; a different choice rebuilds the screen. */
+    private String loadedProfileId;
+    private ProfilePicker profilePicker;
+    private TextView btnProfile;
+
+    /** At start: nobody yet asks for a name, one person goes straight in, several choose. */
+    private void startProfileFlow() {
+        if (!profileChosen) {
+            java.util.List<Profiles.Profile> all = Profiles.list(this);
+            if (all.size() == 1) {
+                Profiles.setActive(this, all.get(0).id);
+                profileChosen = true;
+            } else {
+                showProfilePicker();
+                return;
+            }
+        }
+        applyProfile();
+    }
+
+    /** The profile in use: its name on the greeting and its avatar on the top bar. */
+    private void applyProfile() {
+        Profiles.Profile p = Profiles.active(this);
+        if (p != null) greetingName = p.name;
+        if (btnProfile != null && p != null) {
+            // The picture fills the round button (it is a person, not an icon), so it is bigger than the others.
+            btnProfile.setPadding((int) (4 * density), 0, (int) (4 * density), 0);
+            btnProfile.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                    new ProfileAvatar(this, p.shape, p.color, (int) (34 * density)), null, null, null);
+            btnProfile.setCompoundDrawableTintList(null);
+            btnProfile.setContentDescription(p.name);
+        }
+        updateGreeting();
+    }
+
+    private void showProfilePicker() {
+        if (profilePicker != null) return;
+        closePopup(openPopup);
+        final ViewGroup host = (ViewGroup) root.getParent();
+        final int focusability = root.getDescendantFocusability();
+        root.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);   // nothing under the picker takes keys
+        profilePicker = new ProfilePicker(this, chosen -> {
+            profileChosen = true;
+            if (loadedProfileId != null && !loadedProfileId.equals(chosen.id)) {
+                // Each profile has its own arrangement of the apps: the screen is built again with theirs. The picker
+                // stays up meanwhile, and the new screen starts under a cover, so the last person's Home is never seen.
+                coverOnStart = true;
+                recreate();
+                return;
+            }
+            final ProfilePicker picker = profilePicker;
+            root.setDescendantFocusability(focusability);
+            applyProfile();
+            picker.animate().alpha(0f).setDuration(180).withEndAction(() -> {
+                host.removeView(picker);
+                if (profilePicker == picker) profilePicker = null;
+                root.post(() -> focusTile(Math.min(Math.max(0, lastFocused), Math.max(0, adapter.appCount() - 1))));
+            }).start();
+        });
+        host.addView(profilePicker, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        profilePicker.start();
+    }
+
+    private AudioOutput audioOutput;
+    /** The Audio output list while it is on screen (so a connection coming or going can update it), else null. */
+    private View audioPanel;
+    private PopupWindow audioPopup;
+
+    /** The Bluetooth audio state changed: refresh the list if it is showing. */
+    private void onAudioChanged() {
+        if (audioPanel != null) root.post(this::refreshAudioRows);
+    }
+
+    /** Audio output: the TV speaker and each paired Bluetooth audio device, a tick on the one in use. */
+    private void fillAudioRows(View panel, PopupWindow popup) {
+        audioPanel = panel;
+        audioPopup = popup;
+        final Runnable back = () -> {
+            ((SidePopup) popup).backHandler = null;
+            audioPanel = null;
+            swapPanelContent(panel, getString(R.string.settings), false, () -> fillSettingsRows(panel, popup));
+        };
+        ((SidePopup) popup).backHandler = back;
+        buildAudioRows(panel, popup);
+    }
+
+    /** Devices that were asked to connect and have not answered yet (by address), so their row says "Connecting…". */
+    private final java.util.Set<String> audioPending = new java.util.HashSet<>();
+
+    private void buildAudioRows(View panel, PopupWindow popup) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        List<AudioOutput.Sink> sinks = audioOutput.sinks();
+        // The one in use first, then the other saved devices, each by name.
+        java.util.Collections.sort(sinks, (x, y) -> {
+            if (x.connected() != y.connected()) return x.connected() ? -1 : 1;
+            return x.name.compareToIgnoreCase(y.name);
+        });
+        boolean anyOn = false;
+        for (AudioOutput.Sink s : sinks) anyOn |= s.connected();
+        final int rowHeight = (int) (56 * density);
+
+        // The TV's own speaker: always there, and what the sound uses whenever no device is connected.
+        View tv = addMenuRow(rows, popup, R.drawable.ic_menu_speaker, getString(R.string.audio_tv_speaker), () -> {
+            audioPending.clear();
+            if (!audioOutput.useTv()) Toast.makeText(this, R.string.audio_failed, Toast.LENGTH_SHORT).show();
+            root.postDelayed(this::refreshAudioRows, 500);
+        }, false);
+        tv.getLayoutParams().height = rowHeight;
+        setRowStatus(tv, getString(R.string.audio_builtin));
+        if (!anyOn) {
+            tv.findViewById(R.id.check).setVisibility(View.VISIBLE);
+            tv.setTag(R.id.check, Boolean.TRUE);
+        }
+
+        // Saved Bluetooth devices. One that is switched off or out of range says so, and trying it says why it failed.
+        for (AudioOutput.Sink s : sinks) {
+            final String address = s.device.getAddress();
+            View row = addMenuRow(rows, popup, R.drawable.ic_menu_bluetooth, s.name, () -> {
+                if (!audioOutput.useBluetooth(s)) {
+                    Toast.makeText(this, R.string.audio_failed, Toast.LENGTH_SHORT).show();
+                } else if (!s.connected()) {
+                    audioPending.add(address);
+                    // No answer in 12 seconds: it is off, or too far. Say so and keep the sound on the TV.
+                    root.postDelayed(() -> {
+                        if (!audioPending.remove(address)) return;
+                        for (AudioOutput.Sink now : audioOutput.sinks()) {
+                            if (now.device.getAddress().equals(address) && !now.connected()) {
+                                audioOutput.cancel(now.device);
+                                Toast.makeText(this, getString(R.string.audio_connect_failed, now.name), Toast.LENGTH_LONG).show();
+                            }
+                        }
+                        root.postDelayed(this::refreshAudioRows, 400);
+                    }, 12000);
+                }
+                root.postDelayed(this::refreshAudioRows, 500);
+            }, false);
+            row.getLayoutParams().height = rowHeight;
+            if (s.connected()) {
+                audioPending.remove(address);
+                setRowStatus(row, getString(R.string.audio_connected));
+                row.findViewById(R.id.check).setVisibility(View.VISIBLE);
+                row.setTag(R.id.check, Boolean.TRUE);
+            } else if (s.connecting() || audioPending.contains(address)) {
+                setRowStatus(row, getString(R.string.audio_connecting));
+            } else {
+                setRowStatus(row, getString(R.string.audio_not_connected));
+            }
+        }
+
+        // Nothing saved, or a new one to save: Bluetooth settings (the pairing itself is the TV's own screen).
+        View add = addMenuRow(rows, popup, R.drawable.ic_menu_bluetooth, getString(R.string.audio_add), () -> {
+            // Back from the pairing screen lands on this page again; Back from it goes to the Sound output row.
+            reopenSettingsRow = 1 + (tvSettingsIntent() != null ? 1 : 0);
+            reopenAudioPage = true;
+            reopenDelayMs = 0;
+            reopenNeedsFocus = false;
+            openSliding(pairingIntent());
+        }, false);
+        add.getLayoutParams().height = rowHeight;
+        setRowStatus(add, getString(audioOutput.bluetoothOn() ? R.string.audio_add_hint : R.string.audio_bt_off));
+    }
+
+    /**
+     * The TV's "add an accessory" screen, where a speaker or headphones is paired. Android TV answers
+     * CONNECT_INPUT for it (the standard Bluetooth settings action has no handler on these TVs); where nothing does,
+     * the TV's Settings opens instead.
+     */
+    private Intent pairingIntent() {
+        Intent pair = new Intent("com.google.android.intent.action.CONNECT_INPUT");
+        if (getPackageManager().resolveActivity(pair, 0) != null) return pair;
+        return systemIntent(Settings.ACTION_SETTINGS);
+    }
+
+    private void setRowStatus(View row, CharSequence text) {
+        TextView status = row.findViewById(R.id.status);
+        status.setText(text);
+        status.setVisibility(View.VISIBLE);
+    }
+
+    /** Rebuilds the open Audio output list in place, keeping the focus on the same row number. */
+    private void refreshAudioRows() {
+        final View panel = audioPanel;
+        final PopupWindow popup = audioPopup;
+        if (panel == null || popup == null || !popup.isShowing()) return;
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        int focused = -1;
+        for (int i = 0; i < rows.getChildCount(); i++) if (rows.getChildAt(i).hasFocus()) focused = i;
+        rows.removeAllViews();
+        View highlight = panel.findViewById(R.id.highlight);
+        highlight.animate().cancel();
+        highlight.setTag(R.id.rowsHost, null);
+        buildAudioRows(panel, popup);
+        View target = rows.getChildAt(Math.max(0, Math.min(focused < 0 ? 0 : focused, rows.getChildCount() - 1)));
+        if (target != null) target.requestFocus();
+    }
+
+    /** Home language: System default, English, Tamil. Back returns to the Settings list inside the same panel. */
+    /** About: the app, its version and who made it (the Elvan Navil branding of the Neram app). */
+    private void fillAboutRows(View panel, PopupWindow popup) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final int h = (int) (56 * density);
+        ((SidePopup) popup).backHandler = () -> {
+            ((SidePopup) popup).backHandler = null;
+            swapPanelContent(panel, getString(R.string.settings), false, () -> fillSettingsRows(panel, popup));
+        };
+        String version = "";
+        try {
+            version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (PackageManager.NameNotFoundException ignored) {
+        }
+        String[][] items = {
+                {getString(R.string.app_name), getString(R.string.about_version, version)},
+                {getString(R.string.about_designer), getString(R.string.about_designer_value)},
+                {getString(R.string.about_from), ""},
+        };
+        for (String[] item : items) {
+            View row = addMenuRow(rows, popup, 0, item[0], () -> { }, false);
+            row.getLayoutParams().height = h;
+            if (!item[1].isEmpty()) setRowStatus(row, item[1]);
+        }
+    }
+
+    private void fillLanguageRows(View panel, PopupWindow popup) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final Runnable back = () -> {
+            ((SidePopup) popup).backHandler = null;
+            swapPanelContent(panel, getString(R.string.settings), false, () -> fillSettingsRows(panel, popup));
+        };
+        ((SidePopup) popup).backHandler = back;
+        String current = LocaleHelper.getLanguage(this);
+        String[] codes = {"system", "ta", "en"};
+        String[] labels = {getString(R.string.language_system_default), getString(R.string.language_tamil),
+                getString(R.string.language_english)};
+        for (int i = 0; i < codes.length; i++) {
+            final String code = codes[i];
+            View row = addMenuRow(rows, popup, 0, labels[i], () -> {
+                if (code.equals(LocaleHelper.getLanguage(this))) return;
+                applyLanguage(code);
+                refreshLanguagePanel(panel);
+            }, false);
+            row.getLayoutParams().height = (int) (56 * density);
+            if (code.equals(current)) {
+                row.findViewById(R.id.check).setVisibility(View.VISIBLE);
+                row.setTag(R.id.check, Boolean.TRUE);
+            }
+        }
+    }
+
+    /**
+     * Switches the launcher's language where it stands: the screen is not rebuilt, so nothing moves, the focus stays
+     * and the open panel stays open. The saved choice is what the next start reads (LocaleHelper.wrap).
+     */
+    private void applyLanguage(String code) {
+        LocaleHelper.setLanguage(this, code);
+        java.util.Locale locale = "system".equals(code) || code.isEmpty()
+                ? android.content.res.Resources.getSystem().getConfiguration().getLocales().get(0)
+                : LocaleHelper.getLocaleForTag(code);
+        java.util.Locale.setDefault(locale);
+        android.content.res.Configuration config = new android.content.res.Configuration(getResources().getConfiguration());
+        config.setLocales(new android.os.LocaleList(locale));
+        getResources().updateConfiguration(config, getResources().getDisplayMetrics());
+        // The texts that are set once, at start, in the layout or in code.
+        if (sectionTitle != null) sectionTitle.setText(reordering ? R.string.arrange_apps : R.string.your_apps);
+        if (btnDoneReorder != null) btnDoneReorder.setText(R.string.done);
+        DateClock date = findViewById(R.id.date);
+        if (date != null) {
+            date.setFormat12Hour(getString(R.string.date_format_home));
+            date.setFormat24Hour(getString(R.string.date_format_home));
+        }
+        for (int id : new int[]{R.id.clock, R.id.ampm}) {
+            TextClock clock = findViewById(id);
+            if (clock != null) {
+                CharSequence f12 = clock.getFormat12Hour(), f24 = clock.getFormat24Hour();
+                clock.setFormat12Hour(f12);
+                clock.setFormat24Hour(f24);
+            }
+        }
+        applyTimeOrder();
+        root.post(this::alignClock);
+        adapter.notifyItemChanged(adapter.appCount());   // the Reorder tile's label
+    }
+
+    /** The open language list in the new language: the title and the first row's name change, the ticks move. */
+    private void refreshLanguagePanel(View panel) {
+        ((TextView) panel.findViewById(R.id.panelTitle)).setText(R.string.language_label);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        String current = LocaleHelper.getLanguage(this);
+        String[] codes = {"system", "ta", "en"};
+        String[] labels = {getString(R.string.language_system_default), getString(R.string.language_tamil),
+                getString(R.string.language_english)};
+        for (int i = 0; i < codes.length && i < rows.getChildCount(); i++) {
+            View row = rows.getChildAt(i);
+            fitTv(row.findViewById(R.id.title), labels[i]);
+            row.findViewById(R.id.check).setVisibility(codes[i].equals(current) ? View.VISIBLE : View.GONE);
+            row.setTag(R.id.check, codes[i].equals(current) ? Boolean.TRUE : null);
+        }
+    }
+
+    /**
+     * Puts the digits of the time, the date's digits and the divider on one centre line, and that line level with the
+     * middle of the top-bar pill. The centre comes from the digits' real height and the text baseline, not from the line
+     * boxes, so it does not depend on the font: a Tamil day period or date (with its taller line box) sits the same as
+     * Latin text.
+     */
+    private void alignClock() {
+        TextView clock = findViewById(R.id.clock);
+        TextView date = findViewById(R.id.date);
+        View dateBox = findViewById(R.id.dateBox);
+        View divider = findViewById(R.id.clockDivider);
+        View block = findViewById(R.id.leftBlock);
+        View pill = findViewById(R.id.topButtons);
+        if (clock == null || date == null || dateBox == null || divider == null || block == null) return;
+        if (clock.getHeight() == 0 || date.getHeight() == 0 || date.getVisibility() != View.VISIBLE) return;
+        // A text whose layout is being rebuilt has no baseline yet (-1): measuring now would shift the date for good.
+        if (clock.getBaseline() < 0 || date.getBaseline() < 0) return;
+        dateBox.setTranslationY(0f);
+        divider.setTranslationY(0f);
+        block.setTranslationY(0f);
+        android.graphics.Rect digits = new android.graphics.Rect();
+        clock.getPaint().getTextBounds("0123456789", 0, 10, digits);
+        android.graphics.Rect dateDigits = new android.graphics.Rect();
+        date.getPaint().getTextBounds("0123456789", 0, 10, dateDigits);
+        // Layout positions only (the sum of each view's top), never window positions: those include whatever the panel
+        // slide or any other animation is doing to the parents at that moment, and the offset would be wrong for good.
+        float clockCentre = layoutTop(clock) + clock.getBaseline() - digits.height() / 2f;
+        float dateCentre = layoutTop(date) + date.getBaseline() - dateDigits.height() / 2f;
+        float dividerCentre = layoutTop(divider) + divider.getHeight() / 2f;
+        dateBox.setTranslationY(clockCentre - dateCentre);
+        divider.setTranslationY(clockCentre - dividerCentre);
+        // The whole row level with the pill's middle.
+        if (pill != null && pill.getVisibility() == View.VISIBLE && pill.getHeight() > 0) {
+            float pillCentre = layoutTop(pill) + pill.getHeight() / 2f;
+            block.setTranslationY(pillCentre - clockCentre);
+        }
+    }
+
+    /** The view's top within the screen's layout, ignoring every translation, scale and animation. */
+    private float layoutTop(View v) {
+        float top = 0f;
+        for (View cur = v; cur != null; ) {
+            top += cur.getTop();
+            if (!(cur.getParent() instanceof View)) break;
+            cur = (View) cur.getParent();
+        }
+        return top;
+    }
+
+    /**
+     * The clock reads the way the language writes it: where the day period (AM/PM) comes before the time, as in Tamil
+     * ("பிற்பகல் 1:30"), it is shown before it; elsewhere after. Both have the time's size.
+     */
+    private void applyTimeOrder() {
+        View clock = findViewById(R.id.clock);
+        View period = findViewById(R.id.ampm);
+        if (clock == null || period == null || !(period.getParent() instanceof ViewGroup)) return;
+        ViewGroup parent = (ViewGroup) period.getParent();
+        java.util.Locale locale = getResources().getConfiguration().getLocales().get(0);
+        String pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, "hm");
+        boolean first = pattern != null && pattern.replace("\u200E", "").trim().startsWith("a");
+        int clockAt = parent.indexOfChild(clock);
+        int periodAt = parent.indexOfChild(period);
+        if (first != (periodAt < clockAt)) {
+            parent.removeView(period);
+            parent.addView(period, first ? parent.indexOfChild(clock) : parent.indexOfChild(clock) + 1);
+        }
+        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) period.getLayoutParams();
+        lp.setMarginStart(first ? 0 : (int) (8 * density));
+        lp.setMarginEnd(first ? (int) (8 * density) : 0);
+        period.setLayoutParams(lp);
+    }
+
+    /**
+     * Changes what an open side panel lists without moving the panel, the way the stock TV Settings changes page
+     * (measured on the stock app): the title and the list move as one block; the new page slides in about 125dp from
+     * the right (from the left going back) with a long ease-out, settling in about 400ms, and fades in; the old page,
+     * kept as a picture, fades out over the first 100ms and drifts the other way. Both are on screen together.
+     * forward: going into a sub-list.
+     */
+    private void swapPanelContent(View panel, CharSequence title, boolean forward, Runnable fill) {
+        final ViewGroup group = (ViewGroup) panel;
+        final TextView titleView = panel.findViewById(R.id.panelTitle);
+        final View host = panel.findViewById(R.id.rowsHost);
+        final View scroller = (View) host.getParent();
+        final LinearLayout rows = panel.findViewById(R.id.rows);
+        final View highlight = panel.findViewById(R.id.highlight);
+        final boolean animate = animations && !reducedMotion && panel.getWidth() > 0 && panel.getHeight() > 0;
+
+        // The old page, as a picture over the panel.
+        final android.graphics.drawable.BitmapDrawable old;
+        if (animate && !Motion.lowEnd) {
+            Bitmap shot = Bitmap.createBitmap(panel.getWidth(), panel.getHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(shot);
+            canvas.save();
+            canvas.translate(titleView.getLeft(), titleView.getTop());
+            titleView.draw(canvas);
+            canvas.restore();
+            canvas.save();
+            canvas.translate(scroller.getLeft(), scroller.getTop());
+            canvas.clipRect(0, 0, scroller.getWidth(), scroller.getHeight());
+            scroller.draw(canvas);
+            canvas.restore();
+            old = new android.graphics.drawable.BitmapDrawable(getResources(), shot);
+            old.setBounds(0, 0, shot.getWidth(), shot.getHeight());
+            group.getOverlay().add(old);
+        } else {
+            old = null;
+        }
+
+        // The new page, built at once.
+        rows.removeAllViews();
+        highlight.animate().cancel();
+        highlight.setAlpha(0f);
+        highlight.setTag(R.id.rowsHost, null);
+        titleView.setText(title);
+        fill.run();
+        View target = rows.getChildAt(0);
+        for (int i = 0; i < rows.getChildCount(); i++) {
+            if (Boolean.TRUE.equals(rows.getChildAt(i).getTag(R.id.check))) target = rows.getChildAt(i);
+        }
+        if (!forward) {
+            if (pageReturnIndex >= 0 && pageReturnIndex < rows.getChildCount()) target = rows.getChildAt(pageReturnIndex);
+            pageReturnIndex = -1;
+        }
+        if (target != null) target.requestFocus();
+        if (!animate) return;
+
+        final float travel = 125 * density * (forward ? 1 : -1);
+        titleView.setAlpha(0f);
+        scroller.setAlpha(0f);
+        titleView.setTranslationX(travel);
+        scroller.setTranslationX(travel);
+        final android.view.animation.Interpolator slide = new android.view.animation.PathInterpolator(0.05f, 0.7f, 0.1f, 1f);
+        ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
+        anim.setDuration(400);
+        anim.addUpdateListener(a -> {
+            float t = (Float) a.getAnimatedValue();
+            float moved = slide.getInterpolation(t);
+            float x = travel * (1f - moved);
+            titleView.setTranslationX(x);
+            scroller.setTranslationX(x);
+            float in = Math.min(1f, t / 0.45f);
+            titleView.setAlpha(in);
+            scroller.setAlpha(in);
+            // The old page: gone within the first fifth, drifting a little away from where the new one comes from.
+            if (old != null) {
+                old.setAlpha(Math.round(255 * Math.max(0f, 1f - t / 0.18f)));
+                int dx = Math.round(-travel * 0.16f * moved);
+                old.setBounds(dx, 0, dx + old.getIntrinsicWidth(), old.getIntrinsicHeight());
+                panel.invalidate();
+            }
+        });
+        anim.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                if (old != null) group.getOverlay().remove(old);
+                titleView.setTranslationX(0f);
+                scroller.setTranslationX(0f);
+                titleView.setAlpha(1f);
+                scroller.setAlpha(1f);
+            }
+        });
+        anim.start();
     }
 
     /** The maker's own TV settings app, when this TV has one and it can be opened; otherwise null (no row is shown). */
@@ -3125,33 +4149,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         }
         return null;
-    }
-
-    /** Language: the launcher's own, without touching the TV's system language. */
-    private void showLanguagePanel() {
-        View panel = inflateSidePanel(getString(R.string.language_label));
-        LinearLayout rows = panel.findViewById(R.id.rows);
-        PopupWindow popup = sidePopup(panel);
-        String current = LocaleHelper.getLanguage(this);
-        String[] codes = {"system", "en", "ta"};
-        String[] labels = {getString(R.string.language_system_default), getString(R.string.language_english),
-                getString(R.string.language_tamil)};
-        View currentRow = null;
-        for (int i = 0; i < codes.length; i++) {
-            final String code = codes[i];
-            View row = addMenuRow(rows, popup, 0, labels[i], () -> {
-                if (code.equals(LocaleHelper.getLanguage(this))) return;
-                LocaleHelper.setLanguage(this, code);
-                recreate();
-            });
-            row.getLayoutParams().height = (int) (56 * density);
-            if (code.equals(current)) {
-                row.findViewById(R.id.check).setVisibility(View.VISIBLE);
-                currentRow = row;
-            }
-        }
-        slideIn(popup, panel);
-        (currentRow != null ? currentRow : rows.getChildAt(0)).requestFocus();
     }
 
     /** The side panel (panel_inputs) with its title set; its rows are added to R.id.rows. */

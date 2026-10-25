@@ -7,7 +7,8 @@
     android:gravity="center_vertical"
     android:paddingStart="16dp"
     android:paddingEnd="20dp"
-    android:background="@drawable/menu_row_bg"
+    android:background="@android:color/transparent"
+    android:defaultFocusHighlightEnabled="false"
     android:focusable="true"
     android:clickable="true">
 
@@ -15,8 +16,7 @@
         android:id="@+id/icon"
         android:layout_width="22dp"
         android:layout_height="22dp"
-        android:tint="@drawable/menu_text"
-        android:duplicateParentState="true"
+        android:tint="#FFE8EAED"
         android:contentDescription="@null" />
 
     <LinearLayout
@@ -27,27 +27,25 @@
         android:orientation="vertical"
         android:duplicateParentState="true">
 
-        <TextView
+        <com.elvan.tvhome.ScrollTextView
             android:id="@+id/title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:singleLine="true"
             android:ellipsize="end"
-            android:textColor="@drawable/menu_text"
-            android:duplicateParentState="true"
+            android:textColor="#FFE8EAED"
             android:textSize="15sp"
             android:fontFamily="@string/font_medium"
             android:includeFontPadding="false" />
 
-        <TextView
+        <com.elvan.tvhome.ScrollTextView
             android:id="@+id/status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="3dp"
             android:singleLine="true"
             android:ellipsize="end"
-            android:textColor="@drawable/menu_text_dim"
-            android:duplicateParentState="true"
+            android:textColor="#FF9AA0A6"
             android:textSize="12sp"
             android:fontFamily="@string/font_body"
             android:includeFontPadding="false"
@@ -60,8 +58,7 @@
         android:layout_height="20dp"
         android:layout_marginStart="12dp"
         android:src="@drawable/ic_menu_check"
-        android:tint="@drawable/menu_text"
-        android:duplicateParentState="true"
+        android:tint="#FFE8EAED"
         android:visibility="gone"
         android:contentDescription="@null" />
 </LinearLayout>

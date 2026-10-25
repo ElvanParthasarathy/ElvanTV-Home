@@ -17,6 +17,7 @@ import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -393,6 +394,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         if (isReorderAt(position)) {
             ReorderHolder rh = (ReorderHolder) holder;
+            rh.name.setText(R.string.reorder);
             // Stays on screen, dimmed, while the apps are rearranged, as on the stock launcher.
             rh.card.setFocusable(!reordering);
             boolean focused = rh.card.isFocused();
@@ -422,6 +424,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         h.name.setVisibility(View.VISIBLE);
         boolean focused = h.card.isFocused();
         h.name.setAlpha(focused ? 1f : restNameAlpha);
+        h.name.setEllipsize(focused ? TextUtils.TruncateAt.MARQUEE : TextUtils.TruncateAt.END);
+        TitleScroller.set(h.name, focused);
         h.card.setScaleX(focused && animations ? focusScale() : 1f);
         h.card.setScaleY(focused && animations ? focusScale() : 1f);
         if (h.focusRing != null) {
@@ -429,7 +433,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 h.focusRing.setVisibility(View.VISIBLE);
                 h.focusRing.setAlpha(1f);
                 h.stopRingBreathing();
-                if (animations && !reducedMotion) {
+                if (animations && !reducedMotion && !Motion.lowEnd) {
                     h.card.postDelayed(h.breathingRunnable, Holder.DWELL_BREATHING_DELAY_MS);
                 }
             } else {
@@ -468,6 +472,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         });
     }
 
+    void open(Entry e) {
+        launch(e);
+    }
+
     /** Opens the tile's activity by explicit component, with no extras: a card can name nothing else. */
     private void launch(Entry e) {
         if (e.kind == Entry.HOME_SETTINGS) {
@@ -490,7 +498,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         try {
             ctx.startActivity(i);
-            if (cinematic) LastOpened.record(ctx, e.pkg);
+            LastOpened.record(ctx, e.pkg);
             if (advancedEffects && !reducedMotion && ctx instanceof Activity) {
                 ((Activity) ctx).overridePendingTransition(R.anim.app_open_enter, R.anim.app_open_exit);
             }
@@ -733,7 +741,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         private static final long FOCUS_MS = 150;
 
         void startRingBreathing() {
-            if (!animations || reducedMotion || focusRing == null || !card.isFocused()) return;
+            if (!animations || reducedMotion || Motion.lowEnd || focusRing == null || !card.isFocused()) return;
             if (ringAnimator != null) {
                 ringAnimator.cancel();
             }
@@ -803,12 +811,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             card.setOnFocusChangeListener((view, focused) -> {
                 view.animate().cancel();
                 name.animate().cancel();
+                TitleScroller.set(name, focused);
                 if (focusRing != null) {
                     focusRing.animate().cancel();
                     if (focused) {
                         stopRingBreathing();
                         focusRing.setVisibility(View.VISIBLE);
-                        if (animations && !reducedMotion) {
+                        if (animations && !reducedMotion && !Motion.lowEnd) {
                             // Measured against the stock Google TV launcher: the focus move settles in ~150 ms.
                             focusRing.setAlpha(0f);
                             focusRing.animate().alpha(1f).setDuration(FOCUS_MS).start();
@@ -834,10 +843,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             .start();
                     name.setAlpha(focused ? 1f : restNameAlpha);
                 } else {
-                    view.animate().scaleX(s).scaleY(s)
+                    android.view.ViewPropertyAnimator zoom = view.animate().scaleX(s).scaleY(s)
                             .setDuration(FOCUS_MS)
-                            .setInterpolator(new DecelerateInterpolator(1f))
-                            .withLayer().start();
+                            .setInterpolator(new DecelerateInterpolator(1f));
+                    // A hardware layer for a 150 ms zoom is built and torn down on every focus move: on a weak GPU
+                    // that was the one slow frame per key press.
+                    if (!Motion.lowEnd) zoom.withLayer();
+                    zoom.start();
                     name.animate().alpha(focused ? 1f : restNameAlpha)
                             .setDuration(FOCUS_MS).start();
                 }
@@ -873,6 +885,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             card.setOnFocusChangeListener((view, focused) -> {
                 view.animate().cancel();
                 name.animate().cancel();
+                TitleScroller.set(name, focused);
                 icon.setColorFilter(focused ? 0xFF1F1F21 : 0xFFFFFFFF);
                 name.setTextColor(focused ? 0xFF1F1F21 : 0xFFFFFFFF);
                 float scale = 1.06f;

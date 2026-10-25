@@ -40,6 +40,10 @@
     <string-array name="hidden_apps">
         <item>com.tcl.tv</item>
         <item>com.tcl.dashboard</item>
+        <!-- The Settings button in the top bar opens these, so they are not tiles as well. -->
+        <item>com.android.tv.settings</item>
+        <item>com.android.settings</item>
+        <item>com.tcl.settings</item>
     </string-array>
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->

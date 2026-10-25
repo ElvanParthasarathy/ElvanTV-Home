@@ -24,7 +24,7 @@
         android:importantForAccessibility="no" />
 
     <!-- Ambient glow in the colour of the focused dock app. -->
-    <View
+    <FrameLayout
         android:id="@+id/ambient"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -213,18 +213,18 @@
                         android:id="@+id/ampm"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:layout_gravity="bottom"
-                        android:layout_marginBottom="4dp"
+                        android:layout_marginStart="8dp"
                         android:format12Hour="a"
                         android:format24Hour=""
-                        android:textColor="#B3FFFFFF"
-                        android:textSize="13sp"
-                        android:fontFamily="@string/font_medium"
-                        android:letterSpacing="0.08"
-                        android:textAllCaps="true" />
+                        android:textColor="#E6FFFFFF"
+                        android:textSize="26sp"
+                        android:fontFamily="@string/font_regular"
+                        android:letterSpacing="0"
+                        android:includeFontPadding="false"
+                        android:textAllCaps="false" />
 
                     <View
+                        android:id="@+id/clockDivider"
                         android:layout_width="1dp"
                         android:layout_height="20dp"
                         android:layout_gravity="center_vertical"
@@ -233,6 +233,7 @@
                         android:background="#33FFFFFF" />
 
                     <LinearLayout
+                        android:id="@+id/dateBox"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_vertical"
@@ -253,7 +254,7 @@
                             android:includeFontPadding="false"
                             android:visibility="gone" />
 
-                        <TextClock
+                        <com.elvan.tvhome.DateClock
                             android:id="@+id/date"
                             android:gravity="left"
                             android:layout_width="wrap_content"
@@ -307,6 +308,13 @@
                 android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/btnProfile"
+                    style="@style/TopIconButton"
+                    android:contentDescription="@string/profile_title"
+                    android:drawableStart="@drawable/ic_menu_person"
+                    android:nextFocusDown="@+id/grid" />
+
+                <TextView
                     android:id="@+id/btnInputs"
                     style="@style/TopIconButton"
                     android:text="@string/inputs"
@@ -352,10 +360,11 @@
             android:id="@+id/sectionTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="64dp"
+            android:layout_marginTop="96dp"
             android:text="@string/your_apps"
-            android:textColor="#E6FFFFFF"
+            android:textColor="#FFFFFFFF"
             android:textSize="20sp"
+            android:textStyle="bold"
             android:fontFamily="@string/font_medium"
             android:letterSpacing="0.01" />
 
@@ -365,8 +374,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:layout_marginStart="-9dp"
+            android:layout_marginStart="-56dp"
             android:layout_marginEnd="-56dp"
+            android:paddingStart="47dp"
             android:paddingEnd="56dp"
             android:orientation="horizontal"
             android:clipToPadding="false"
