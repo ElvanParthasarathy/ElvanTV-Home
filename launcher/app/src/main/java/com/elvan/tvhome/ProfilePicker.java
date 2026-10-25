@@ -55,10 +55,11 @@ final class ProfilePicker extends FrameLayout {
         setClickable(true);
         setFocusable(false);
         setDescendantFocusability(FOCUS_AFTER_DESCENDANTS);
-        // The TV's keyboard would open by itself over the name and take the arrow keys; it opens when OK is pressed on the name.
+        // Keep the screen stationary on Android TV: do not pan or push the window when keyboard opens.
         if (context instanceof android.app.Activity) {
             ((android.app.Activity) context).getWindow().setSoftInputMode(
-                    android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+                    android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+                    | android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         }
     }
 
@@ -208,9 +209,11 @@ final class ProfilePicker extends FrameLayout {
         nameField.setTextColor(TEXT);
         nameField.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
         nameField.setTypeface(UiFont.get(getContext(), R.string.font_regular));
-        nameField.setGravity(Gravity.CENTER);
+        nameField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PERSON_NAME | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         nameField.setSingleLine(true);
-        nameField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        nameField.setIncludeFontPadding(false);
+        nameField.setGravity(Gravity.CENTER);
+        nameField.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
         nameField.setImeOptions(EditorInfo.IME_ACTION_DONE);
         nameField.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
         // On a TV the keyboard takes over the arrow keys, so it opens only when OK is pressed on the name, not on focus.
@@ -228,12 +231,15 @@ final class ProfilePicker extends FrameLayout {
         });
         nameField.setFilters(new InputFilter[]{new InputFilter.LengthFilter(Profiles.MAX_NAME)});
         nameField.setBackground(focusBg(0x22FFFFFF, 0x44FFFFFF, 26));
-        nameField.setPadding((int) (20 * d), 0, (int) (20 * d), 0);
+        nameField.setPadding((int) (24 * d), 0, (int) (24 * d), 0);
         nameField.setOnEditorActionListener((v, action, event) -> {
             hideKeyboard();
             return true;
         });
-        col.addView(nameField, new LinearLayout.LayoutParams((int) (340 * d), (int) (52 * d)) {{ topMargin = (int) (16 * d); }});
+        col.addView(nameField, new LinearLayout.LayoutParams((int) (340 * d), (int) (52 * d)) {{
+            topMargin = (int) (16 * d);
+            gravity = Gravity.CENTER_HORIZONTAL;
+        }});
 
         // The shapes, then the colours.
         LinearLayout shapes = new LinearLayout(getContext());

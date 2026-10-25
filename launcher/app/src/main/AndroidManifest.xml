@@ -87,6 +87,7 @@
             android:excludeFromRecents="true"
             android:clearTaskOnLaunch="true"
             android:configChanges="orientation|screenSize|keyboard|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustNothing"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
