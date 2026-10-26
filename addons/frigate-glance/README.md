@@ -22,8 +22,6 @@ By default only Frigate **alerts** open a card, so what counts as worth interrup
 Frigate's review settings (for example a person in a required zone), and the settings screen narrows it
 further by camera and object.
 
-![The add-on's card in the launcher's grid](docs/card-in-grid.jpg)
-
 ## Permissions
 
 | Permission | Why |

@@ -7,8 +7,6 @@ asleep. For the [ElvanTV-Home](../../README.md) launcher it declares a [module c
 once you answer **Show card** its tile reads "Headphones" with a blue glow. On any other Android TV home it is an
 ordinary app.
 
-![Headphones on a TV with none paired yet](screenshot.jpg)
-
 Opening it shows:
 
 | Row | What it does |

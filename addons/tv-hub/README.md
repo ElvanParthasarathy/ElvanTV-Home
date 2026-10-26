@@ -10,20 +10,6 @@ ElvanTV-Home it can sit in the dock as **TV Hub · Live channels** once you appr
 Free, MIT-licensed, no ads, no accounts, no tracking, no background services. It comes with no
 channels: it plays the sources you add. Only use playlists and services you are allowed to watch.
 
-## Screenshots
-
-Taken on a MOKA R8G (Android TV 14) with the demo sources from `tools/make_fixtures.py`. The video
-itself is missing from the player screenshots because the TV keeps it out of screen captures.
-
-| | |
-| :-: | :-: |
-| <img src="docs/screenshots/guide.jpg" width="420" alt="Guide: programme grid with a now line"> | <img src="docs/screenshots/live-tv.jpg" width="420" alt="Live TV: categories and channels with now and next"> |
-| Guide | Live TV |
-| <img src="docs/screenshots/home.jpg" width="420" alt="Home: recently watched and favourites"> | <img src="docs/screenshots/favorites.jpg" width="420" alt="Favorites"> |
-| Home | Favorites |
-| <img src="docs/screenshots/sources.jpg" width="420" alt="Sources with their status"> | <img src="docs/screenshots/welcome.jpg" width="420" alt="First launch: every source optional"> |
-| Sources | First launch |
-
 ## What works
 
 | | Status |

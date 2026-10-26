@@ -5,8 +5,6 @@ TV and the home screen. For the [ElvanTV-Home](../../README.md) launcher it decl
 [module card](../../docs/modules.md): once you answer **Show card** its tile reads "Brightness" with an amber
 glow. On any other Android TV home it is an ordinary app.
 
-![Brightness in night mode at 40 %, warm, over its own settings](screenshot.jpg)
-
 Opening it shows one list, worked with the remote alone:
 
 | Row | What it does |
