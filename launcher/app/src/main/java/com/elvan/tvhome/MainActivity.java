@@ -3732,7 +3732,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 Profiles.markChosen(this);
                 profileChosen = true;
             } else {
-                showProfilePicker();
+                showProfilePicker(false, null, true);
                 return;
             }
         }
@@ -3755,11 +3755,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void showProfilePicker() {
-        showProfilePicker(false, null);
+        showProfilePicker(false, null, false);
     }
 
     /** The profile screen: the list of people to choose from, or (editor) just the editor for one person, or a new one (target null). */
     private void showProfilePicker(boolean editor, Profiles.Profile target) {
+        showProfilePicker(editor, target, false);
+    }
+
+    private void showProfilePicker(boolean editor, Profiles.Profile target, boolean atLaunch) {
         if (profilePicker != null) return;
         closePopup(openPopup);
         // The editor opened from Settings gives Settings back, on the Manage profiles page, when it is left.
@@ -3791,7 +3795,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
         host.addView(profilePicker, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         if (editor) profilePicker.startEdit(target);
-        else profilePicker.start();
+        else profilePicker.start(atLaunch);
     }
 
     /** Home with another profile's arrangement of the apps (and its shortcuts from the library), in place. */

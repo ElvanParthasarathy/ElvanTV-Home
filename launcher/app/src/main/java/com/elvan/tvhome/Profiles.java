@@ -51,7 +51,7 @@ final class Profiles {
             for (Profile p : all) a.put(new JSONObject().put("id", p.id).put("n", p.name).put("s", p.shape).put("c", p.color));
         } catch (JSONException ignored) {
         }
-        prefs(ctx).edit().putString(LIST, a.toString()).apply();
+        prefs(ctx).edit().putString(LIST, a.toString()).commit();   // on disk now: a kill or a power cut right after must not lose it
     }
 
     /** The profile in use, or null before the first one is made. */
@@ -68,7 +68,7 @@ final class Profiles {
     }
 
     static void setActive(Context ctx, String id) {
-        prefs(ctx).edit().putString(ACTIVE, id).apply();
+        prefs(ctx).edit().putString(ACTIVE, id).commit();
     }
 
     static Profile add(Context ctx, String name, int shape, int color) {

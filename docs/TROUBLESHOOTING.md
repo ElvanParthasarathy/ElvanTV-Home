@@ -481,6 +481,17 @@ Things that bit us or contributors, so they don't bite you. Commands use `tools/
   once by hand. On a TV whose list disables the updater, this only happens when you install an
   update on purpose: enable the updater, update, `check.py --fix`, disable it again.
 
+- **The profiles on the TV were gone and it asked for a name again (TCL, launcher `2.6`, seen more than once, cause not found).**
+  Profiles, each person's app order and hidden apps, and the button remapper's buttons are all kept in the launcher's own
+  app data, so anything that clears that data takes them all: `pm clear com.elvan.tvhome`, Settings, Apps, Clear data, an
+  uninstall followed by an install (a build signed with a different key cannot update the old one, so it has to be
+  removed first), or a "clean up" feature of the TV's own system apps. A plain `adb install -r` keeps them. One of the
+  cases was a `pm clear` run by hand while testing, but the owner also saw it happen without one. Until the cause is known:
+  after an update, check Settings, Profiles first; if they are gone, the likely suspects are an uninstall/reinstall and
+  TCL's own storage cleaner, so look at `adb logcat -d | grep -i -E "clear|wipe|ClearApp"` right after it happens. The
+  launcher now writes the profile list to disk at once (not later in the background), so a power cut or a kill right after
+  adding a profile no longer loses it.
+
 ## Accessibility helper enabled but the remote button does nothing
 
 The optional `HomeKeyService` and `InputKeyService` only filter remote keys once Android has bound to

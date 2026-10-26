@@ -75,15 +75,24 @@ final class ProfilePicker extends FrameLayout {
     // ---- entry points ------------------------------------------------------------------------------------------------
     /** First run: nobody yet, so ask for a name. Otherwise the list of people. */
     void start() {
+        start(false);
+    }
+
+    /**
+     * atLaunch: the TV has just started (or the launcher has), so the screen waits for its window to be in front before it
+     * comes in. Opened by the owner from Home (the profile button) it comes in at once: no focus event follows then, and
+     * waiting for one made the screen appear seconds after the tap.
+     */
+    void start(boolean atLaunch) {
         fromSettings = false;
         // The screen stays dark until the window is really in front, then comes in. At power-on the launcher starts while the
         // boot animation still covers the screen: a fade that began at once was over before anyone could see it.
-        setAlpha(0f);
-        waitingToShow = true;
+        waitingToShow = atLaunch;
+        setAlpha(atLaunch ? 0f : 1f);
         if (Profiles.list(getContext()).isEmpty()) showEditor(null, true);
         else showChooser();
         // A launcher that never gets the focus event (already in front) still shows itself.
-        postDelayed(this::showNow, 2500);
+        if (atLaunch) postDelayed(this::showNow, 2500);
     }
 
     private boolean waitingToShow;
