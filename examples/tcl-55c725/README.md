@@ -118,7 +118,7 @@ did anything. Scancodes from `tools/tv.py 'getevent -lt'` (names from `Generic.k
 The keycodes Android gives Globoplay and Disney+ are TCL's own and show up in no log here, so they are mapped by
 scancode. A button can open any installed app, not only its own; on this unit Prime and Globoplay went to apps the
 owner uses, and the TCL button to an HDMI port with an `input:` entry (needs the launcher change from
-[#766](https://github.com/Gathin23/cleanyourtv/pull/766)). HDMI 1 to 4 are `…/HW1413744128`, `…/HW1413744384`,
+#766). HDMI 1 to 4 are `…/HW1413744128`, `…/HW1413744384`,
 `…/HW1413744640` and `…/HW1413745664` (`hdmi_port=N` in `dumpsys tv_input`); `…/HW1413743104` is AV. All six
 were confirmed with the real remote.
 

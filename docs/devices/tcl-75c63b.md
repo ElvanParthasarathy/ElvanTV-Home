@@ -5,8 +5,6 @@ Checked on a real TV in one session on 2026-10-20, using upstream
 This is not a tested debloat list: no general telemetry/preload removal or
 several-day regression test was performed.
 
-![Reference launcher on the tested TCL](tcl-75c63b-home.png)
-
 ## Identify the firmware, not just the generic model name
 
 | Field | Observed value |

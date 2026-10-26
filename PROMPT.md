@@ -74,7 +74,7 @@ Debloat
   contacts, user dictionary and blocked numbers aside), `com.android.systemui`, `com.android.shell`,
   `com.android.phone`, `com.android.settings`, `com.android.tv.settings` and `android`. An original Mi TV
   Stick never booted again after a list took the first six
-  ([#884](https://github.com/Gathin23/cleanyourtv/issues/884)); `tools/disable.sh` refuses such a list.
+  (#884); `tools/disable.sh` refuses such a list.
 - Before touching streaming apps, voice assistant, Chromecast, Miracast or the update service, ask me
   which ones I use with a checklist question and disable only what I don't tick.
 - Run `pm` commands one per shell call, chained commands may silently stop after the first.

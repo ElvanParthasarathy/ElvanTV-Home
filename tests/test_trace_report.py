@@ -4,7 +4,7 @@ The report reads traces with Perfetto's query engine, which CI never downloads. 
 SQLite, though, so these tests run the same queries against a small in-memory database laid out
 like a trace (process, thread, thread_track, slice, actual_frame_timeline_slice) and check the
 numbers by hand. A test that needs the real engine runs only when the optional perfetto package is
-installed and CLEANYOURTV_TRACE names a trace recorded with tools/trace.py.
+installed and ELVANTV_TRACE names a trace recorded with tools/trace.py.
 
 Run from the repository root: python3 -m unittest discover -s tests -v
 """
@@ -264,11 +264,11 @@ class MainTest(unittest.TestCase):
                 self.assertIn("Change in the median:", out.getvalue())
 
 
-@unittest.skipUnless(os.environ.get("CLEANYOURTV_TRACE") and importlib.util.find_spec("perfetto"),
-                     "needs the optional perfetto package and CLEANYOURTV_TRACE=<a trace from tools/trace.py>")
+@unittest.skipUnless(os.environ.get("ELVANTV_TRACE") and importlib.util.find_spec("perfetto"),
+                     "needs the optional perfetto package and ELVANTV_TRACE=<a trace from tools/trace.py>")
 class RealTraceTest(unittest.TestCase):
     def test_the_real_engine_runs_the_same_queries(self):
-        path = os.environ["CLEANYOURTV_TRACE"]
+        path = os.environ["ELVANTV_TRACE"]
         q, close = report.opener()(path)
         try:
             metrics = report.nav_metrics(q, PKG) if report.scenario_of(path) == "nav" else report.start_metrics(q, PKG)

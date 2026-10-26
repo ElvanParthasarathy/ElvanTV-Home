@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Put the Nebula D2426 back the way it was before cleanyourtv (needs ADB on, like the setup did).
+# Put the Nebula D2426 back the way it was before elvantv (needs ADB on, like the setup did).
 #
 #   TV_HOST=<projector ip> examples/anker-nebula-d2426/restore.sh                 # undo everything, keep the new launcher installed
 #   TV_HOST=<projector ip> examples/anker-nebula-d2426/restore.sh --remove-launcher  # ...and uninstall it too

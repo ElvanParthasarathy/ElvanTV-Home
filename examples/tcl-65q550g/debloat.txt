@@ -7,7 +7,7 @@
 # Known quirk on this firmware: default_input_method points at com.baidu.input, which is not
 # installed, so no keyboard appears in search fields. Set Gboard as the IME (see README gotchas).
 # Tested on one unit over Ethernet: setupwraith owned saved Wi-Fi networks and claimed HOME;
-# disabling it over Ethernet allowed CleanYourTV to become HOME. Do not disable it over Wi-Fi.
+# disabling it over Ethernet allowed ElvanTV-Home to become HOME. Do not disable it over Wi-Fi.
 
 # Batch 1 - telemetry and analytics
 com.tcl.ttvs                           # TCL BI/awareness/identifier services

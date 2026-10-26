@@ -114,4 +114,4 @@ Tested and confirmed working on a wide range of hardware platforms:
 
 * **License:** [MIT License](LICENSE)
 * **Author & Maintainer:** Elvan Parthasarathy ([@ElvanParthasarathy](https://github.com/ElvanParthasarathy))
-* **Acknowledgements:** Developed based on the open-source architectural foundation of [CleanYourTV](https://github.com/Gathin23/cleanyourtv) by Gathin, licensed under the MIT License.
+* **Third-party:** the Outfit typeface ([SIL Open Font License 1.1](launcher/FONT-LICENSE-OFL.txt)); copyright notices of earlier contributors are kept in [LICENSE](LICENSE), as the MIT License requires.

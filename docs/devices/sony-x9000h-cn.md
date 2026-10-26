@@ -4,8 +4,6 @@ Owner report for a China-market X9000H. The retail model was supplied by the own
 the platform model, so a different regional X9000H may behave differently. A tested package list for
 this unit lives in [`examples/sony-x9000h-cn/debloat.txt`](../../examples/sony-x9000h-cn/debloat.txt).
 
-![Reference launcher on the X9000H](sony-x9000h-cn-home.png)
-
 ## Observed firmware
 
 | Field | Observed value |

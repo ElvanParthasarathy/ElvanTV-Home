@@ -111,7 +111,7 @@ class KeycodeDiscoveryNoteTest(unittest.TestCase):
         self.assertIn("dumpsys window policy", self.note)
 
     def test_bullet_links_the_issue(self):
-        self.assertIn("[#853](https://github.com/Gathin23/cleanyourtv/issues/853)", self.note)
+        self.assertIn("#853", self.note)
 
     def test_config_xml_keycodes_comment_points_at_the_logd_route(self):
         self.assertIn("InputReader:D", self.keycodes_comment)

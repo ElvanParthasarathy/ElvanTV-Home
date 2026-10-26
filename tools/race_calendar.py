@@ -68,7 +68,7 @@ def main():
 
     config = Path(args.theme) / "config.json"
     theme = json.loads(config.read_text(encoding="utf-8")) if config.is_file() else {}
-    request = urllib.request.Request(API.format(season=args.season), headers={"User-Agent": "cleanyourtv"})
+    request = urllib.request.Request(API.format(season=args.season), headers={"User-Agent": "elvantv"})
     with urllib.request.urlopen(request, timeout=30) as response:
         table = json.load(response)["MRData"]["RaceTable"]
     now = datetime.datetime.now(datetime.timezone.utc)

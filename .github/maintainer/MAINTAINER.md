@@ -1,6 +1,6 @@
-# How CleanYourTV PRs are reviewed
+# How ElvanTV-Home PRs are reviewed
 
-CleanYourTV (Gathin23/cleanyourtv) is a prompt plus tools that debloat Android TV / Google TV / Fire TV over
+ElvanTV-Home (ElvanParthasarathy/ElvanTV-Home) is a prompt plus tools that debloat Android TV / Google TV / Fire TV over
 ADB and a tiny native launcher (`launcher/`, plain Java, ~474 KB, for 1 GB TVs). Contributors mostly add
 tested TV lists under `examples/<tv>/`, translations, docs, small launcher options, themes, add-ons and tools.
 
@@ -15,7 +15,7 @@ it, and every one of them gets a home. Pick the smallest home that fits (CONTRIB
 | A small launcher switch: **off by default**, strings in **every** locale (or config-only), small | merged here | merge / merge-with-fix |
 | A new look (colours, wallpaper, dock style) that existing config keys can carry | `themes/<name>/` with a real-TV screenshot | theme |
 | A feature that can be its own small app (card, widget, screensaver, stats) | `addons/<name>/`, a module card that never touches `launcher/` | addon |
-| A big in-launcher rewrite, new permissions or network access, an old-Android port (lower minSdk), Fire TV Home takeover, an alternative launcher, a change of the default for every TV | the contributor's fork plus one row in SHOWCASE.md | showcase |
+| A big in-launcher rewrite, new permissions or network access, an old-Android port (lower minSdk), Fire TV Home takeover, an alternative launcher, a change of the default for every TV | the contributor's own fork | close |
 | Safety rules or PROMPT.md, CI/workflows, the APK gate, protected packages | the maintainer | hold |
 
 - showcase, addon and theme are kind closes (or, for theme, a move): thank the author for something specific,
@@ -31,7 +31,7 @@ it, and every one of them gets a home. Pick the smallest home that fits (CONTRIB
 ## Verdicts
 - **merge**: correct, in scope, tested where it matters, nothing to change.
 - **merge-with-fix**: a small mechanical change makes it mergeable (add the README/examples row, a string missing
-  in one or two locales, drop a stray file, comment out an untested entry, trim a SHOWCASE cell to one line).
+  in one or two locales, drop a stray file, comment out an untested entry).
   Say exactly what to change in `fix`.
 - **rework**: worth having but the author must change something real. One clear ask.
 - **close**: duplicate, superseded, out of scope or against the base rules. Be kind; point at what landed.
@@ -76,7 +76,7 @@ it, and every one of them gets a home. Pick the smallest home that fits (CONTRIB
 - A PR that bundles several good, separable parts gets **rework**: split it (list each part). A device's list plus
   small fixes for that same device can be one PR. A list bundled inside a launcher feature PR goes as its own PR.
 - A PR that conflicts with main gets a kind rebase request (**rework**) naming the conflicting files, whatever
-  else is true of it (approved 22 Oct). A conflict only in README.md, examples/README.md or SHOWCASE.md is not
+  else is true of it (approved 22 Oct). A conflict only in README.md or examples/README.md is not
   one: those tables are union-merged on merge, so no rebase is needed.
 - Duplicates: when an earlier open PR, or a PR merged in the last week, fixes the same issue in the same files
   (or adds mostly the same lines), the later PR is the duplicate: **close** it and name the other one (#873 after

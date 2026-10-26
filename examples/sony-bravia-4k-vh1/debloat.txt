@@ -13,13 +13,13 @@
 # settings apps and all com.mediatek.*: they drive HDMI, the tuner, Bravia Sync, updates and the remote.
 # Chromecast built-in (mediashell) and firmware updates kept.
 #
-# setupwraith is still enabled on this unit: Home already resolves to CleanYourTV. Disable
+# setupwraith is still enabled on this unit: Home already resolves to ElvanTV-Home. Disable
 # com.google.android.tungsten.setupwraith if the Google TV setup wizard retakes Home after a reboot.
 # Closest sibling list: examples/sony-bravia-4k-vh2/ (VH2 / KD-55X80J).
 # Same Android platform (BRAVIA_VH1) as the PA-firmware notes in
 # docs/devices/sony-kd-55x9000h.md (retail KD-55X9000H); this list is the EU build.
 #
-# Lived with for weeks on a KD-55XH9096 (Spain/EU) with CleanYourTV; Live TV, HDMI Inputs, Ethernet
+# Lived with for weeks on a KD-55XH9096 (Spain/EU) with ElvanTV-Home; Live TV, HDMI Inputs, Ethernet
 # and Chromecast still work. If something breaks, re-enable it with `pm enable <package>` and please report it.
 
 # ACR viewing tracker
@@ -68,7 +68,7 @@ com.google.android.play.games
 com.android.printspooler
 com.youview.poa                                # YouView (UK); unused on this EU unit
 
-# Stock leanback Home (CleanYourTV owns HOME)
+# Stock leanback Home (ElvanTV-Home owns HOME)
 com.google.android.tvlauncher
 
 # Off by owner's choice (re-enable if you use them)

@@ -124,7 +124,7 @@ class DeviceNotesLinkedTest(unittest.TestCase):
             (root / "README.md").write_text(
                 "```\nsee docs/devices/sharp-32fi4ea.md\n```\n"
                 "`docs/devices/sharp-32fi4ea.md`\n"
-                "[upstream](https://github.com/Gathin23/cleanyourtv/blob/main/docs/devices/sharp-32fi4ea.md)\n",
+                "[upstream](https://github.com/ElvanParthasarathy/ElvanTV-Home/blob/main/docs/devices/sharp-32fi4ea.md)\n",
                 encoding="utf-8")
             self.assertEqual([f"{NOTES}/sharp-32fi4ea.md"], unlinked_notes(root))
 

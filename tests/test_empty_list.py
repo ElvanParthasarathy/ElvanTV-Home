@@ -208,7 +208,7 @@ class EmptyListTest(unittest.TestCase):
             with self.subTest(entry=entry):
                 self.tv()
                 self.disable(entry)
-                self.assertFalse((self.home / ".cleanyourtv").exists())
+                self.assertFalse((self.home / ".elvantv").exists())
 
     def test_a_real_list_still_runs(self):
         # The guard on the fix: the pipeline now tolerates an empty result, and a list with entries
@@ -222,7 +222,7 @@ class EmptyListTest(unittest.TestCase):
                 sent = state["commands"]
                 self.assertIn("pm disable-user --user 0 com.example.before", sent)
                 self.assertIn("pm disable-user --user 0 com.example.after", sent)
-                self.assertTrue((self.home / ".cleanyourtv").exists(),
+                self.assertTrue((self.home / ".elvantv").exists(),
                                 "a list that disables something still records the undo")
 
     def test_a_list_that_cannot_be_read_is_named(self):

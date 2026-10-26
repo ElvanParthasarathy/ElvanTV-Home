@@ -82,4 +82,3 @@ Re-enable ADB under Account & Security if it closes at reboot. Directly starting
 Home key after restoring the preference. No root, property changes, system-app
 installation or removal of stock Home is required by the successful procedure.
 
-![Alternate-ID launcher on the tested TV](xiaomi-mitv-aetp0-home.png)

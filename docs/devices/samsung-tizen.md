@@ -7,7 +7,7 @@
 > No safe system-app removal or full restorable backup was established.
 
 One owner's reconnaissance from a Mac on the same network, not a port and not a tested list. It was
-reported in [#441](https://github.com/Gathin23/cleanyourtv/issues/441) on 2026-10-20 by
+reported in #441 on 2026-10-20 by
 [@csmith1133](https://github.com/csmith1133), with nothing changed on the TV. Nothing in `tools/`
 speaks Tizen: `tools/tv.py` drives `adb`, and this set has no `adb` to connect to.
 
@@ -54,8 +54,7 @@ key sequence with a person watching the screen, not a package list. Combined wit
 the router, it is the realistic shape of a Tizen version of this repo: settings by remote keys plus
 DNS, rather than debloat plus a launcher.
 
-A port like that belongs in its own repository, with a row in [SHOWCASE.md](../../SHOWCASE.md), the
-same as the [webOS launcher](https://github.com/OmkarK97/webos-vibehack).
+A port like that belongs in its own repository.
 
 ## What the AU8000 report does not establish
 

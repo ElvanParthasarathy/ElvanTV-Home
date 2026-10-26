@@ -3,13 +3,12 @@
 TCL Q7C QD-Mini LED, device `G08`, model "Smart TV Pro", product `G08_4K_GB`, firmware `UTT2.250416.001 AU02`,
 MediaTek `tcl9618`, about 2.4 GB RAM. The same firmware build as the 85RM7L list and the same G08 board as the
 C755, QM6K and 75T7 (US) lists. Set up on Ethernet in Austria. Both halves work on this set: the debloat list and the
-Clean Your TV launcher as Home.
+ElvanTV-Home launcher as Home.
 
 | File | What it is |
 |---|---|
 | `debloat.txt` | The 37 packages that were disabled, grouped and commented |
 | `config.json` | Dock, hidden TCL tiles, Live TV app, the Settings and YouTube buttons; push it with `tools/theme.sh` |
-| `65q7d-pro-home.png` | Home on the second unit, a TCL 65Q7D Pro (see [Second unit](#second-unit-65q7d-pro-greece-wi-fi)) |
 
 **How much testing is behind it:** one set, from 21 October 2026. The first 35 packages were disabled in five batches
 and survived a reboot. launcherx and setupwraith were disabled afterwards, for the new launcher. YouTube, Live TV,
@@ -90,8 +89,6 @@ tools (upstream `4c55533`, launcher 2.6). The firmware is the same build as the 
 so `debloat.txt` here is the list to run; this section records the deltas and what differed on this unit. The
 packages were applied in five batches with `tools/disable.sh` and checked after one reboot, but they have **not**
 been lived with for several days, so nothing was added to `debloat.txt` beyond two header lines naming this unit.
-
-![Reference launcher on the TCL 65Q7D Pro, five-tile dock, rotating wallpaper (greeting name and Wi-Fi name blurred)](65q7d-pro-home.png)
 
 ### Identify the firmware
 

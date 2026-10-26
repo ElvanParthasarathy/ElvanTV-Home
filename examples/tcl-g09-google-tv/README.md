@@ -1,7 +1,7 @@
 # TCL Smart TV Pro G09 (Google TV, Android 12)
 
 UK firmware `G09_4K_GB` (STT2.230203.001 AS24, Amlogic T5M, 2 GB RAM), set up in Brazil. Both halves
-work on this set: the debloat list and the Clean Your TV launcher as Home. Tested on 19 October 2026,
+work on this set: the debloat list and the ElvanTV-Home launcher as Home. Tested on 19 October 2026,
 including a reboot.
 
 | File | What it is |

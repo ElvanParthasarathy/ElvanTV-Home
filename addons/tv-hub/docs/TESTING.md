@@ -72,8 +72,8 @@ Install: `adb install -r app/build/outputs/apk/debug/app-debug.apk`. Write down 
 - [ ] Dispatcharr: server address and an output profile; with the TV's network not allowed, the 403 message appears.
 - [ ] Streaming apps: installed known apps are pre-ticked; "Show every TV app" lists the rest; the Home shortcut opens the app; uninstall the app and it disappears from Home.
 
-### 6. CleanYourTV module card
-On a TV running CleanYourTV (com.elvan.tvhome) or a fork that keeps its card category:
+### 6. ElvanTV-Home module card
+On a TV running ElvanTV-Home (com.elvan.tvhome) or a fork that keeps its card category:
 
 ```bash
 adb shell pm dump io.github.maxhayim.tvhub | grep -B2 -A6 DOCK_CARD

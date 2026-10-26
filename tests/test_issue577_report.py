@@ -19,7 +19,7 @@ README = ROOT / "README.md"
 EXAMPLES_README = ROOT / "examples" / "README.md"
 PROMPT = ROOT / "PROMPT.md"
 FIRE_STICK = ROOT / "examples" / "amazon-fire-tv-stick-4k-2018" / "debloat.txt"
-ISSUE = "https://github.com/Gathin23/cleanyourtv/issues/577"
+ISSUE = "#577"
 
 PACKAGES = [
     "com.nes.tvbugtracker",

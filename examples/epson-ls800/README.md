@@ -1,7 +1,7 @@
 # Epson LS800 (Android TV 14 laser projector)
 
 Epson's Android TV module HA90 (built by Askey, board `sti6202d101`, Amlogic), firmware
-UKG3.250826.001 (`u-2.05-U-0`, June 2026). Both halves work: the debloat list and the Clean Your TV
+UKG3.250826.001 (`u-2.05-U-0`, June 2026). Both halves work: the debloat list and the ElvanTV-Home
 launcher as Home. Tested on 21 October 2026.
 
 | File | What it is |

@@ -91,7 +91,7 @@ class RepositoryLinksTest(unittest.TestCase):
             root = Path(tmp)
             (root / "note.md").write_text(
                 "\n".join([
-                    "[issue](https://github.com/Gathin23/cleanyourtv/issues/795)",
+                    "[issue](https://github.com/ElvanParthasarathy/ElvanTV-Home/issues/795)",
                     "[mail](mailto:someone@example.com)",
                     "[here](#what-this-page-covers)",
                     "[back](note.md#what-this-page-covers)",

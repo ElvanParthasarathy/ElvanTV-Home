@@ -4,7 +4,7 @@ TCL 55C745, device `G08`, model "Smart TV Pro", product `G08_4K_GB`, firmware `U
 MediaTek `tcl9618`, about 2.4 GB RAM. The same firmware build as examples/tcl-q7c-google-tv and
 examples/tcl-85rm7l-google-tv, and the same G08 board as the C755, QM6K and 75T7 (US) lists. Set up on
 Ethernet; a France/UK household (French and UK catch-up apps alongside Stremio and a third-party YouTube
-client). Both halves work on this set: the debloat list and the Clean Your TV launcher as Home.
+client). Both halves work on this set: the debloat list and the ElvanTV-Home launcher as Home.
 
 | File | What it is |
 |---|---|

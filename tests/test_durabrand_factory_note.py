@@ -60,7 +60,7 @@ class DurabrandNoteTest(unittest.TestCase):
         self.assertTrue(NOTE.is_file(), "docs/devices entry missing")
         text = NOTE.read_text(encoding="utf-8")
         for token in ("DURAT32ISDB", "dupont", "m7332", "RTM6.230109.232", "Android TV 11",
-                      "2023-08-01", "issues/470"):
+                      "2023-08-01", "#470"):
             with self.subTest(token=token):
                 self.assertIn(token, text)
 
@@ -113,7 +113,7 @@ class TroubleshootingTrapTest(unittest.TestCase):
 
     def test_trap_names_the_cause_and_the_damage(self):
         for token in (FACTORY, "customer_factory_mode", "vendor.mtk.factory.disable.input",
-                      "fdata.ini", "HDMI-CEC", "issues/470",
+                      "fdata.ini", "HDMI-CEC", "#470",
                       "com.google.android.katniss", "com.google.android.apps.mediashell"):
             with self.subTest(token=token):
                 self.assertIn(token, self.trap)

@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.gathin.photodream'
+    namespace 'com.elvan.photodream'
     compileSdk 34
 
     defaultConfig {
-        applicationId 'com.gathin.photodream'
+        applicationId 'com.elvan.photodream'
         // DreamService with a hardware bitmap and TextureView: Android 8 and up, as the launcher.
         minSdk 26
         targetSdk 34

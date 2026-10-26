@@ -16,7 +16,7 @@
         android:icon="@drawable/banner"
         android:label="@string/app_name">
 
-        <!-- The timer picker: the app's own tile and, on the cleanyourtv launcher, its module card. -->
+        <!-- The timer picker: the app's own tile and, on the elvantv launcher, its module card. -->
         <activity
             android:name=".TimerActivity"
             android:exported="true"

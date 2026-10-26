@@ -54,14 +54,14 @@ TV_HOST=<tv ip> tools/venv/bin/python -I tools/tv.py 'pm install -r /data/local/
 - **Tested on a real TV.** Say which one in the README and in the table above.
 - **A screenshot.** `addons/<name>/screenshot.jpg`: the add-on on a real TV, its card in the grid or
   its own screen, as a JPEG, 16:9 (1280×720 is plenty) and under 300 KB, shown in the table's
-  Screenshot column. It is what people see first here and on [cleanyour.tv/addons](https://cleanyour.tv/addons).
+  Screenshot column. It is what people see first here.
   Take it with `tools/tv.py --screenshot shot.png` (or `adb exec-out screencap -p > shot.png`), then
   `sips -s format jpeg -s formatOptions 85 -z 720 1280 shot.png --out screenshot.jpg` on a Mac.
   Blur anything personal: Wi-Fi names, people, addresses. Add-ons marked "wanted" in the table came
   before this rule; a screenshot for one of them is welcome.
 - **The author maintains it.** Issues about an add-on are assigned to its author. An add-on that
   breaks on current Android TV versions, or goes unmaintained, may be removed. Its history stays in
-  git, and you can keep it going in a fork listed in [`SHOWCASE.md`](../SHOWCASE.md).
+  git, and you can keep it going in a fork.
 
 ## Adding one
 

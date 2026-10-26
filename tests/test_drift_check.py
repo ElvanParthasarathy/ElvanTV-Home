@@ -246,8 +246,8 @@ class DriftCheckTest(unittest.TestCase):
         # not write a record of its own that would make restore.sh enable everything afterwards.
         self.tv(disabled=[STOCK])
         self.assertEqual(self.run_check("--fix", str(self.list_path)).returncode, 0)
-        records = list((self.home / ".cleanyourtv").glob("*.json")) \
-            if (self.home / ".cleanyourtv").exists() else []
+        records = list((self.home / ".elvantv").glob("*.json")) \
+            if (self.home / ".elvantv").exists() else []
         self.assertEqual(records, [])
 
     def test_home_on_a_stock_launcher_the_list_leaves_out_is_drift(self):

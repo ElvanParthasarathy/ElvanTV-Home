@@ -103,7 +103,7 @@ class AgentsNumbersTest(unittest.TestCase):
         ci = CI.read_text(encoding="utf-8")
         for command in ("python3 -m unittest discover -s tests -v",
                         "./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease",
-                        "CLEANYOURTV_STRICT"):
+                        "ELVANTV_STRICT"):
             with self.subTest(command=command):
                 self.assertIn(command, ci, "ci.yml changed; update AGENTS.md and this test")
                 self.assertIn(command, text(), "AGENTS.md no longer gives the command CI runs")

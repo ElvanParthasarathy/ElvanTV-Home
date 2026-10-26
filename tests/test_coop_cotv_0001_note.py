@@ -14,7 +14,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 NOTE = ROOT / "docs" / "devices" / "coop-cotv-0001.md"
 TROUBLE = ROOT / "docs" / "TROUBLESHOOTING.md"
-ISSUE = "https://github.com/Gathin23/cleanyourtv/issues/795"
+ISSUE = "#795"
 LAUNCHER = "com.haiersoft.launcherproject2995hk"
 DEPENDENCY = "com.tsb.tv"
 

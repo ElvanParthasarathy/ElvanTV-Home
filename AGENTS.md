@@ -18,7 +18,7 @@ this file repeats their rules in the form an agent needs, and links to them for 
 - **Disable, never uninstall.** `pm disable-user --user 0`, one package per shell call. No
   `pm uninstall`, no root, nothing flashed. Every step must be undone by `tools/restore.sh`.
 - **Back up first.** Package list, disabled list, `getprop` and settings into `backup/` before the first
-  change. `tools/disable.sh` also writes its own record in `~/.cleanyourtv/`; keep the list you applied.
+  change. `tools/disable.sh` also writes its own record in `~/.elvantv/`; keep the list you applied.
 - **Leave alone what the TV needs to work:** the TV app and input services behind HDMI and the tuner,
   the input/source menu, remote and Bluetooth pairing, the on-screen keyboard, Play Store and Play
   Services. When a package name says nothing, read `dumpsys package <name>`, then ask.
@@ -62,17 +62,16 @@ share their TV's list afterwards, follow [Add a TV list](#add-a-tv-list) below.
 | Path | What it is |
 |---|---|
 | `PROMPT.md` | The prompt people paste into their agent. Brand-neutral; safety rules live here. |
-| `README.md` | Front page: quick start, supported TVs and the TV table, tools, launcher, restore, firmware updates, FAQ. `README.zh-CN.md` and `README.vi.md` are translations. |
+| `README.md` | Front page: quick start, supported TVs and the TV table, tools, launcher, restore, firmware updates, FAQ. |
 | `CONTRIBUTING.md` | The contributor guide for people. "Where does my idea go?" is the routing table. |
 | `SECURITY.md` | Private vulnerability reporting. |
-| `SHOWCASE.md` | Projects built on this repo that live in their own repositories. |
 | `CODE_OF_CONDUCT.md` | Includes the rule against publishing device identifiers, Wi-Fi names and IPs. |
 | `examples/` | One folder per tested TV model: `debloat.txt`, sometimes a `README.md` and a `config.json`. Indexed in `examples/README.md`. |
-| `docs/` | `docs/TROUBLESHOOTING.md`, `docs/REMOTE.md` (another home, over Tailscale), `docs/modules.md` and `docs/specs/card.md` (module cards), `docs/PRESS.md`, `docs/devices/` for models with notes but no tested list, and `docs/workflows/` for multi-step methods (see [Workflows](#workflows)). |
+| `docs/` | `docs/TROUBLESHOOTING.md`, `docs/REMOTE.md` (another home, over Tailscale), `docs/modules.md` and `docs/specs/card.md` (module cards), `docs/devices/` for models with notes but no tested list, and `docs/workflows/` for multi-step methods (see [Workflows](#workflows)). |
 | `launcher/` | The reference launcher, package `com.elvan.tvhome`: plain Java, AndroidX RecyclerView and DynamicAnimation, `minSdk` 26, no `INTERNET` permission. |
 | `themes/` | One folder per theme: `config.json`, a required `screenshot.jpg`, optional wallpapers. Keys are documented in `themes/README.md`. |
 | `addons/` | Optional module-card apps, each its own Gradle project, never built into the launcher. |
-| `tools/` | The ADB client and the scripts: `tv.py`, `b64push.py`, `relay.py` (guide: `tools/relay.md`), `disable.sh`, `restore.sh`, `recovery.py`, `check.py`, `privacy.py`, `theme.sh`, `adb-closed.py`, `bench.py`, `trace.py` and `trace_report.py` (guide: `tools/trace.md`, optional `tools/requirements-perf.txt`), `flamechart.py` (guide: `tools/flamechart.md`), `screendiff.py` (guide: `tools/screendiff.md`), `race_calendar.py`. Shell scripts have PowerShell twins (`disable.ps1` and the like). `readme_stats.py`, `readme_featured.py` and `readme_card.py` draw the README card. Each script's usage is in its first lines: read it before running it. |
+| `tools/` | The ADB client and the scripts: `tv.py`, `b64push.py`, `relay.py` (guide: `tools/relay.md`), `disable.sh`, `restore.sh`, `recovery.py`, `check.py`, `privacy.py`, `theme.sh`, `adb-closed.py`, `bench.py`, `trace.py` and `trace_report.py` (guide: `tools/trace.md`, optional `tools/requirements-perf.txt`), `flamechart.py` (guide: `tools/flamechart.md`), `screendiff.py` (guide: `tools/screendiff.md`), `race_calendar.py`. Shell scripts have PowerShell twins (`disable.ps1` and the like). Each script's usage is in its first lines: read it before running it. |
 | `tests/` | Python `unittest` suite: list format, README tables, press counts, themes, add-ons, the Home guard and the tools against fake TVs. |
 | `.github/workflows/` | `ci.yml` (tests, launcher build, APK size gate), `addons.yml`, `maintainer-bot.yml`. |
 | `.github/maintainer/MAINTAINER.md` | The review policy the maintainer and the PR bot apply. |
@@ -88,7 +87,7 @@ The core stays small on purpose. Pick the smallest home that fits (CONTRIBUTING,
 | A small launcher switch that is off by default | A pull request here: see [the switch recipe](#add-an-off-by-default-launcher-switch) |
 | A new look: colours, wallpaper, dock, columns, that existing config keys can carry | `themes/<name>/` |
 | A widget or tile that can be its own small app | `addons/<name>/`, as a module card that never touches `launcher/` |
-| A whole new launcher, a heavy restyle, a port to another platform, a lower `minSdk`, new permissions or network access, Fire TV Home takeover, a changed default for every TV | Your own repository, plus one row in `SHOWCASE.md` |
+| A whole new launcher, a heavy restyle, a port to another platform, a lower `minSdk`, new permissions or network access, Fire TV Home takeover, a changed default for every TV | Your own repository |
 | Safety rules in `PROMPT.md`, the Home-safety logic in the scripts, protected packages, CI and workflows, the APK size gate | Open an issue for the maintainer; do not change it in a PR |
 
 ### What gets merged, sent back or closed
@@ -205,25 +204,6 @@ no switch. No new dependencies in `launcher/app/build.gradle` without an issue f
 5. No APKs in the repo. `tests/test_addons.py` checks all of this; `.github/workflows/addons.yml` builds the
    add-ons that changed with `./gradlew --no-daemon assembleRelease`.
 
-### Add a showcase row
-
-1. Add one row to the section of `SHOWCASE.md` that fits (home screens, forks, screensavers and add-ons,
-   tools, other platforms), and the project under its TV brand in "Find a project by TV brand".
-2. Keep each cell to one line: what it is, what it was built and tested on, and the author.
-3. The project is open source with a link people can read and build, says which TV it was tested on, collects
-   nothing beyond what its README says, and is yours or listed with the author's blessing.
-4. Put a screenshot in the PR description; it is linked from the row.
-
-### Add a press entry
-
-1. Add a row `| Outlet | [Headline](<url>) | Date |` to the right country section of `docs/PRESS.md`, in the
-   headline's own language. The link must open and show the article: no syndicated copies, no auto-generated
-   listings, nothing that cannot be checked.
-2. Update the counts in all four places `tests/test_press_counts.py` checks: the `docs/PRESS.md` intro line,
-   its index line, the README card's alt text ("and N more: N articles from N countries") and `MORE` in
-   `tools/readme_featured.py`. If you cannot redraw `docs/featured.png` and `docs/card.jpg` with
-   `tools/readme_featured.py` and `tools/readme_card.py`, say so in the PR.
-
 ### Docs and troubleshooting notes
 
 - `docs/TROUBLESHOOTING.md` is grouped under headings (Connecting, Working on the TV, then one per larger
@@ -248,7 +228,7 @@ use it and links the tool guides it needs.
 
 | Check | Command or rule |
 |---|---|
-| Tests, as CI runs them | `python3 -m unittest discover -s tests -v` after `python3 -m venv tools/venv` and `tools/venv/bin/pip install -r tools/requirements.txt`. On `main`, CI sets `CLEANYOURTV_STRICT=1`, which also checks the README's TV-model count. |
+| Tests, as CI runs them | `python3 -m unittest discover -s tests -v` after `python3 -m venv tools/venv` and `tools/venv/bin/pip install -r tools/requirements.txt`. On `main`, CI sets `ELVANTV_STRICT=1`, which also checks the README's TV-model count. |
 | Launcher, if you touched `launcher/` | JDK 17, Android SDK platform 34, build-tools 34.0.0. In `launcher/`: `./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease`. Lint must stay at zero errors. |
 | APK size gate | `launcher/app/build/outputs/apk/release/app-release.apk` must be under 491,520 B (480 KB). Linux: `stat -c %s`, macOS: `stat -f %z`. |
 | README rows | A new list has its row in `README.md` and `examples/README.md`; a theme in `themes/README.md`; an add-on in `addons/README.md`. |
@@ -285,7 +265,7 @@ Never do these in a PR:
   launched.
 - **No root, no getting around app-store protection, no private builds** others cannot reproduce from this repo.
 - **No extras added to the PROMPT flow** beyond debloating and the launcher.
-- **Don't relax `minSdk`** (26) or the launcher's permissions; those are forks for `SHOWCASE.md`.
+- **Don't relax `minSdk`** (26) or the launcher's permissions; those belong in a fork.
 
 ## Privacy and screenshots
 
@@ -302,7 +282,7 @@ Never do these in a PR:
   `examples: add Epson LS800 laser projector (Askey HA90, Amlogic), Android TV 14`,
   `docs: an HDMI row opens any app that claims the channel MIME type (#805)`,
   `Launcher: show_inputs_pill, to hide the Inputs pill`. The area is the folder or file the change is in:
-  `examples`, `Launcher`, `docs`, `tools`, `tests`, `themes`, `addons`, `SHOWCASE`, `README`, `Press`.
+  `examples`, `Launcher`, `docs`, `tools`, `tests`, `themes`, `addons`, `README`.
 - The body is one or two sentences on what changed and the TV it was tried on, then the template's checklist.
   `Fixes #N` or `Closes #N` when it resolves an issue.
 - One topic per PR. Small is fine. Be kind in reviews.
@@ -312,7 +292,7 @@ Never do these in a PR:
 
 | For | Where |
 |---|---|
-| "Does it work on my TV?" and other questions | [GitHub Discussions](https://github.com/Gathin23/cleanyourtv/discussions) |
+| "Does it work on my TV?" and other questions | GitHub Discussions |
 | Bugs and TV lists | Issues, with the templates in `.github/ISSUE_TEMPLATE/` |
 | An idea that needs a launcher change, a new dependency, a tool replacement | An issue first, before the PR |
 | A security problem in the prompt, tools, launcher or a list | Privately, as [SECURITY.md](SECURITY.md) describes. Never in a public issue. |

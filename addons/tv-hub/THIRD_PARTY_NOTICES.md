@@ -30,4 +30,4 @@ The same notice ships in the app under Settings > About and licences (`app/src/m
   Font License 1.1). No font file ships in the app.
 
 Pluto TV, Tubi, Plex, Kodi, HDHomeRun, Dispatcharr, Fire TV and Google TV are trademarks of their
-owners, named only to describe what TV Hub can open or read. TV Hub is not affiliated with them or with CleanYourTV.
+owners, named only to describe what TV Hub can open or read. TV Hub is not affiliated with them or with ElvanTV-Home.

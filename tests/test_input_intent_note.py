@@ -14,7 +14,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 TROUBLE = ROOT / "docs" / "TROUBLESHOOTING.md"
 THEMES = ROOT / "themes" / "README.md"
-ISSUE = "https://github.com/Gathin23/cleanyourtv/issues/805"
+ISSUE = "#805"
 START = "- **Picking HDMI 1 in the Inputs menu opened an unrelated app**"
 CHANNEL = "vnd.android.cursor.item/channel"
 
@@ -55,7 +55,7 @@ class InputIntentNoteTest(unittest.TestCase):
         self.assertEqual(self.trouble_text.count(START), 1)
 
     def test_bullet_links_the_issue(self):
-        self.assertIn(f"[#805]({ISSUE})", self.note)
+        self.assertIn(f"#805", self.note)
 
     def test_bullet_says_the_intent_is_implicit(self):
         self.assertIn("implicit", self.note)
@@ -99,7 +99,7 @@ class InputIntentNoteTest(unittest.TestCase):
         row = rows[0]
         self.assertIn("nothing handles the standard `VIEW`", row)
         self.assertIn("query-activities", row)
-        self.assertIn(f"[#805]({ISSUE})", row)
+        self.assertIn(f"#805", row)
 
     def test_theme_readme_still_lists_the_workaround_keys(self):
         self.assertIn("| `source_panel_service`, `source_panel_action` |", self.theme_text)

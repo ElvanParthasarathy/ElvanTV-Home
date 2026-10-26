@@ -116,7 +116,7 @@ ARITY = {"--probe": 1, "--push": 3, "--pull": 3, "--batch": 1, "--reboot": 1}
 # screencap writes the PNG on the TV and we pull the file afterwards: adb_shell's shell() decodes
 # what comes back as text, which corrupts an image, and `exec-out screencap -p` returns a broken
 # PNG on some MediaTek sets (docs/TROUBLESHOOTING.md). /data/local/tmp is writable from shell.
-SHOT_REMOTE = "/data/local/tmp/cleanyourtv-shot.png"
+SHOT_REMOTE = "/data/local/tmp/elvantv-shot.png"
 PNG = b"\x89PNG\r\n\x1a\n"
 # Key names go into a shell command on the TV, so only plain key names and numeric keycodes get through.
 KEY_NAME = re.compile(r"^[A-Z0-9_]+$")

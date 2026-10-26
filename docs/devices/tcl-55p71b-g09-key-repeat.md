@@ -1,6 +1,6 @@
 # TCL 55P71B Pro (G09, Google TV 12): a bound key helper costs remote key auto-repeat
 
-Owner report: [#763](https://github.com/Gathin23/cleanyourtv/issues/763). One unit, one session: TCL
+Owner report: #763. One unit, one session: TCL
 55P71B Pro "Smart TV Pro", device `G09`, Android 12 (Google TV), firmware `STT2.230203.001.AS23`,
 Amlogic.
 
@@ -80,7 +80,7 @@ the buttons and the volume ramp cannot both be had, because both need the same f
 
 ## The same trade on a Xiaomi MediaTek set
 
-A second owner reported it on [#944](https://github.com/Gathin23/cleanyourtv/issues/944): Xiaomi
+A second owner reported it on #944: Xiaomi
 MiTV-MOSR4 (`irobot`, MediaTek), Google TV / Android 11 (SDK 30), firmware `RTM5.220609.003.1265`.
 Holding volume up with `InputKeyService` and `HomeKeyService` bound moves it one step, and
 `InputKeyService` alone is still one step; `dumpsys accessibility` lists the bound service with

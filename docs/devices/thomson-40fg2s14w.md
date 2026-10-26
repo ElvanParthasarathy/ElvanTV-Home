@@ -1,6 +1,6 @@
 # Thomson 40FG2S14W (Expressluck `nagata`, CVTE board, Android TV 14): the launcher runs, Home stays with Google TV
 
-One owner-reported ADB session on one unit ([#1035](https://github.com/Gathin23/cleanyourtv/issues/1035)). The
+One owner-reported ADB session on one unit (#1035). The
 replacement launcher installed and opened, and its five-app dock and D-pad navigation worked. What did not work
 is Home: on this board Home stays with Google TV for as long as the stock launcher is enabled, which is the
 state the CVTE rule asks for. This is **not a tested debloat list** - six privacy and feedback packages were
