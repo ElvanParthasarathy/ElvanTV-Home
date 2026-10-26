@@ -101,6 +101,19 @@
             </intent-filter>
         </activity>
 
+        <!-- The Settings panel over a running app, opened by a remapped button (RemapService). Transparent, its own task. -->
+        <activity
+            android:name=".SettingsOverlayActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TvHome.Overlay"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.elvan.tvhome.overlay"
+            android:excludeFromRecents="true"
+            android:stateNotNeeded="true"
+            android:configChanges="orientation|screenSize|keyboard|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustNothing"
+            android:screenOrientation="landscape" />
+
         <!-- The system input switcher (com.android.tv.action.VIEW_INPUTS), which is what the remote's Input
              button becomes through the TV's Live TV app or InputKeyService. Disabled here and switched on by
              MainActivity only while handle_view_inputs is true (config.xml or a theme), for sets whose stock

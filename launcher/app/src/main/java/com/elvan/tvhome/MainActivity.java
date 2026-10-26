@@ -419,7 +419,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // root fills the window with an opaque colour (Config keeps background_color opaque), so the window's own
         // black under it is a second full-screen fill on every frame for nothing. The starting window still uses
         // the theme's background, so launch looks the same.
-        getWindow().setBackgroundDrawable(null);
+        // Home draws everything itself, so the window needs no background. The overlay keeps a fully transparent one: with
+        // none, the theme's fallback (black) fills the window and hides the app that is behind the panel.
+        getWindow().setBackgroundDrawable(overlayMode() ? new ColorDrawable(Color.TRANSPARENT) : null);
         wallpaperPlayer = new WallpaperPlayer(this, root, cfg);
         sky = findViewById(R.id.sky);
         sky.setIntensity(cfg.skyIntensity);
@@ -697,7 +699,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         // Not after recreate(): the launch intent survives it and would open the settings again.
         if (savedInstanceState == null && !openInputsIfAsked(getIntent())) openSettingsIfAsked(getIntent());
-        startProfileFlow();
+        if (!overlayMode()) startProfileFlow();
+        else hideHomeForOverlay();   // nothing of Home is shown, only the panel
     }
 
     /**
@@ -797,6 +800,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onResume() {
         super.onResume();
         homeResumed = true;
+        if (!overlayMode()) homeInFront = true;
+        if (overlayMode()) hideHomeForOverlay();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
             recreate();
@@ -825,7 +830,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             default:
                 break;
         }
-        if (openLiveTvAfterBoot()) return;
+        if (!overlayMode() && openLiveTvAfterBoot()) return;
         reopenPanelIfDue();
         // The button remapper's helper: on in Settings but not running (after an update or a slow start) is put right.
         root.removeCallbacks(repairRemap);
@@ -988,6 +993,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onPause();
         RemapService.setCapture(null);   // a half-finished "press a button" must never keep swallowing the remote's keys
         homeResumed = false;
+        if (!overlayMode()) homeInFront = false;
         if (reopenSettingsRow >= 0) reopenLeft = true;
         // Coming back from an app, the window hands the focus to the first button in the layout before Home puts it
         // back on the tile: the top bar lit up for a moment. Close it again unless the owner left from it.
@@ -1020,6 +1026,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         handler.removeCallbacks(clockCheck);
         stopped = true;
         tileRefresh.onStop();
+        // Home pressed, or another app came forward: the overlay is not wanted any more (a Settings screen it opened is
+        // the one case where it waits).
+        if (overlayMode() && reopenSettingsRow < 0 && !isFinishing()) finish();
     }
 
     /**
@@ -3044,6 +3053,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setElevation(0f);
         popup.setOnDismissListener(() -> {
             if (openPopup == popup) openPopup = null;
+            if (overlayMode()) {
+                // The overlay has nothing but the panel: once it is closed, and no Settings screen is about to bring it
+                // back, the screen is done and the app underneath is in front again.
+                root.post(() -> {
+                    if (!isFinishing() && openPopup == null && reopenSettingsRow < 0 && profilePicker == null) {
+                        finish();
+                        overridePendingTransition(0, 0);
+                    }
+                });
+                return;
+            }
             // Closed with Back (not because Home left, and not to open something else): the focus goes back to the button
             // that opened it, not to the apps.
             final View opener = panelOpener;
@@ -3714,6 +3734,20 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // ---- profiles --------------------------------------------------------------------------------------------------
     /** Set once a profile was chosen in this process: the picker opens on every start of the launcher, not on every Home press. */
     private static boolean profileChosen;
+
+    /** Overlay: Home's own views (and their black background) must not show over the app behind the panel. */
+    private void hideHomeForOverlay() {
+        root.setBackgroundColor(0);
+        for (int i = 0; i < root.getChildCount(); i++) root.getChildAt(i).setVisibility(View.GONE);
+    }
+
+    /** True in SettingsOverlayActivity: only the Settings panel is shown, over the app that was running. */
+    protected boolean overlayMode() {
+        return false;
+    }
+
+    /** The real Home is resumed (in front). RemapService opens Settings in it then, and as an overlay otherwise. */
+    static volatile boolean homeInFront;
     private final Runnable repairRemap = () -> RemapService.repair(this);
     /** The profile whose app arrangement this screen was built with; a different choice rebuilds the screen. */
     private String loadedProfileId;

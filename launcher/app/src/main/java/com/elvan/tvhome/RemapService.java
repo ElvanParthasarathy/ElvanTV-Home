@@ -125,8 +125,11 @@ public class RemapService extends AccessibilityService {
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED));
                 break;
             case ButtonMap.ACTION_SETTINGS:
-                startActivity(new Intent(MainActivity.ACTION_OPEN_SETTINGS).setClass(this, MainActivity.class)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                // Home in front: the panel opens in it. Any other app: the panel opens over the app, in a transparent
+                // screen of its own, so Home does not come forward first.
+                startActivity(new Intent(MainActivity.ACTION_OPEN_SETTINGS)
+                        .setClass(this, MainActivity.homeInFront ? MainActivity.class : SettingsOverlayActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION));
                 break;
             case ButtonMap.ACTION_INPUTS:
                 startActivity(new Intent(MainActivity.ACTION_VIEW_INPUTS).setClass(this, MainActivity.class)
