@@ -520,6 +520,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         loadedProfileId = loadedFor == null ? null : loadedFor.id;   // whose arrangement the tiles below are
         Order savedOrder = Order.load(Order.file(this));
         adapter.setSavedOrder(Order.ranks(savedOrder, dockApps), Order.docked(savedOrder, dockApps));
+        adapter.setProfileHidden(Profiles.hidden(this, loadedProfileId));
         grid.setAdapter(adapter);
 
         grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
@@ -571,7 +572,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             openSliding(systemIntent(Settings.ACTION_WIFI_SETTINGS));
             return true;
         });
-        btnSettings.setOnClickListener(v -> showSettingsPanel(0));
+        btnSettings.setOnClickListener(v -> {
+            panelOpener = btnSettings;
+            showSettingsPanel(0);
+        });
         btnReorder = findViewById(R.id.btnReorder);
         btnReorder.setOnClickListener(v -> toggleReorder());
         btnReorder.setVisibility(View.GONE);
@@ -694,15 +698,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Not after recreate(): the launch intent survives it and would open the settings again.
         if (savedInstanceState == null && !openInputsIfAsked(getIntent())) openSettingsIfAsked(getIntent());
         startProfileFlow();
-        if (coverOnStart) {
-            coverOnStart = false;
-            final ViewGroup host = (ViewGroup) root.getParent();
-            final View cover = new View(this);
-            cover.setBackgroundColor(0xFF0D0D0F);   // the picker's own colour
-            host.addView(cover, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            root.postDelayed(() -> cover.animate().alpha(0f).setDuration(300)
-                    .withEndAction(() -> host.removeView(cover)).start(), 500);
-        }
     }
 
     /**
@@ -728,6 +723,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean openSettingsIfAsked(Intent intent) {
         if (intent == null || !ACTION_OPEN_SETTINGS.equals(intent.getAction())) return false;
         setIntent(new Intent(Intent.ACTION_MAIN));
+        panelOpener = null;
         root.post(() -> {
             if (!isFinishing() && !isDestroyed() && openPopup == null) showSettingsPanel(0);
         });
@@ -769,7 +765,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.onNewIntent(intent);
         if (openInputsIfAsked(intent)) return;
         if (openSettingsIfAsked(intent)) return;
-        if (intent != null && intent.hasCategory(Intent.CATEGORY_HOME)) { reopenSettingsRow = -1; reopenAudioPage = false; reopenLeft = false; }   // Home: no panel
+        if (intent != null && intent.hasCategory(Intent.CATEGORY_HOME)) { reopenSettingsRow = -1; reopenAudioPage = false; reopenLeft = false; panelOpener = null; }   // Home: no panel
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
         grid.scrollToPosition(0);
         lastFocused = 0;
@@ -831,6 +827,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (openLiveTvAfterBoot()) return;
         reopenPanelIfDue();
+        // The button remapper's helper: on in Settings but not running (after an update or a slow start) is put right.
+        root.removeCallbacks(repairRemap);
+        root.postDelayed(repairRemap, 5000);
         updateGreeting();
         updateRace();
         // The network and Inputs pills keep their state while Home is in the background, and callbacks update them
@@ -987,6 +986,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onPause() {
         super.onPause();
+        RemapService.setCapture(null);   // a half-finished "press a button" must never keep swallowing the remote's keys
         homeResumed = false;
         if (reopenSettingsRow >= 0) reopenLeft = true;
         // Coming back from an app, the window hands the focus to the first button in the layout before Home puts it
@@ -3044,10 +3044,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         popup.setElevation(0f);
         popup.setOnDismissListener(() -> {
             if (openPopup == popup) openPopup = null;
+            // Closed with Back (not because Home left, and not to open something else): the focus goes back to the button
+            // that opened it, not to the apps.
+            final View opener = panelOpener;
+            if (opener != null) {
+                root.post(() -> {
+                    if (isFinishing() || isDestroyed() || !homeResumed || openPopup != null || profilePicker != null
+                            || reopenSettingsRow >= 0) return;
+                    openTopBar();
+                    opener.requestFocus();
+                });
+            }
         });
         openPopup = popup;
         return popup;
     }
+
+    /** The top-bar button whose panel is open (Settings), or null when the panel was opened some other way. */
+    private View panelOpener;
 
     /**
      * Slides the side panel in from the right edge. The slide starts on the panel's first drawn frame: starting it
@@ -3321,10 +3335,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** audioPage: opens on the Sound output page itself (coming back from the Bluetooth pairing screen), Back from it to the list. */
     private void showSettingsPanel(int focusRow, boolean audioPage) {
+        showSettingsPanel(focusRow, audioPage, false);
+    }
+
+    /** profilesPage: opens on the Manage profiles page (coming back from the profile editor), Back from it to the list. */
+    private void showSettingsPanel(int focusRow, boolean audioPage, boolean profilesPage) {
         audioPage &= audioOutput != null && audioOutput.available();
-        View panel = inflateSidePanel(getString(audioPage ? R.string.audio_output : R.string.settings));
+        View panel = inflateSidePanel(getString(profilesPage ? R.string.profile_manage_title
+                : audioPage ? R.string.audio_output : R.string.settings));
         PopupWindow popup = sidePopup(panel);
-        if (audioPage) {
+        if (profilesPage) {
+            pageReturnIndex = focusRow;
+            fillProfileRows(panel, popup);
+        } else if (audioPage) {
             pageReturnIndex = focusRow;
             fillAudioRows(panel, popup);
         } else {
@@ -3332,9 +3355,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         slideIn(popup, panel);
         LinearLayout rows = panel.findViewById(R.id.rows);
-        int at = audioPage ? rows.getChildCount() - 1 : Math.max(0, Math.min(focusRow, rows.getChildCount() - 1));
+        int at = profilesPage ? 0 : audioPage ? rows.getChildCount() - 1 : Math.max(0, Math.min(focusRow, rows.getChildCount() - 1));
         rows.getChildAt(Math.max(0, at)).requestFocus();
     }
+
+    /** Where the Profiles row is in the Settings list, for coming back to it from the profile editor. */
+    private int profilesRowIndex;
 
     /** The Bluetooth pairing screen is in front: Back reopens the Sound output page, not the Settings list. */
     private boolean reopenAudioPage;
@@ -3428,11 +3454,22 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             swapPanelContent(panel, getString(R.string.remap_title), true, () -> fillRemapRows(panel, popup));
         }, false);
         selfRemap[0].getLayoutParams().height = (int) (56 * density);
-        View profilesRow = addMenuRow(rows, popup, R.drawable.ic_menu_person, getString(R.string.profile_title),
-                this::showProfilePicker);
-        profilesRow.getLayoutParams().height = (int) (56 * density);
+        final View[] selfProfile = new View[1];
+        selfProfile[0] = addMenuRow(rows, popup, R.drawable.ic_menu_person, getString(R.string.profile_title), () -> {
+            markReturnRow(rows, selfProfile[0]);
+            swapPanelContent(panel, getString(R.string.profile_manage_title), true, () -> fillProfileRows(panel, popup));
+        }, false);
+        selfProfile[0].getLayoutParams().height = (int) (56 * density);
+        profilesRowIndex = rows.indexOfChild(selfProfile[0]);
+        // The Profiles row wears the picture of the person in use, not a generic icon.
+        Profiles.Profile inUse = Profiles.active(this);
+        if (inUse != null) {
+            ImageView personIcon = selfProfile[0].findViewById(R.id.icon);
+            personIcon.setImageTintList(null);
+            personIcon.setImageDrawable(new ProfileAvatar(this, inUse.shape, inUse.color, (int) (44 * density)));
+        }
         Profiles.Profile current = Profiles.active(this);
-        if (current != null) setRowStatus(profilesRow, current.name);
+        if (current != null) setRowStatus(selfProfile[0], current.name);
         // Home language is part of this panel: the panel stays where it is and only its content changes.
         final View[] selfLang = new View[1];
         View languageRow = addMenuRow(rows, popup, R.drawable.ic_menu_language, getString(R.string.language_label),
@@ -3503,8 +3540,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             setRowStatus(allow, getString(R.string.remap_allow_hint));
             return;
         }
+        // Enabled in Settings but not started by Android (after an install or an update): start it now, not 5 seconds from now.
+        if (!RemapService.isConnected()) RemapService.repair(this);
         final View[] add = new View[1];
         add[0] = addMenuRow(rows, popup, R.drawable.ic_menu_remote, getString(R.string.remap_add), () -> {
+            if (!RemapService.isConnected()) {
+                RemapService.repair(this);
+                Toast.makeText(this, R.string.remap_starting, Toast.LENGTH_SHORT).show();
+                return;
+            }
             TextView title = add[0].findViewById(R.id.title);
             title.setText(R.string.remap_waiting);
             setRowStatus(add[0], getString(R.string.remap_waiting_hint));
@@ -3670,8 +3714,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // ---- profiles --------------------------------------------------------------------------------------------------
     /** Set once a profile was chosen in this process: the picker opens on every start of the launcher, not on every Home press. */
     private static boolean profileChosen;
-    /** Choosing another profile rebuilt the screen: the new one starts under a cover that fades away once it is drawn. */
-    private static boolean coverOnStart;
+    private final Runnable repairRemap = () -> RemapService.repair(this);
     /** The profile whose app arrangement this screen was built with; a different choice rebuilds the screen. */
     private String loadedProfileId;
     private ProfilePicker profilePicker;
@@ -3681,8 +3724,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void startProfileFlow() {
         if (!profileChosen) {
             java.util.List<Profiles.Profile> all = Profiles.list(this);
-            if (all.size() == 1) {
+            if (!all.isEmpty() && Profiles.chosenThisBoot(this)) {
+                // Android restarted the launcher (memory) after this start of the TV's choice was made: no questions.
+                profileChosen = true;
+            } else if (all.size() == 1) {
                 Profiles.setActive(this, all.get(0).id);
+                Profiles.markChosen(this);
                 profileChosen = true;
             } else {
                 showProfilePicker();
@@ -3708,31 +3755,168 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void showProfilePicker() {
+        showProfilePicker(false, null);
+    }
+
+    /** The profile screen: the list of people to choose from, or (editor) just the editor for one person, or a new one (target null). */
+    private void showProfilePicker(boolean editor, Profiles.Profile target) {
         if (profilePicker != null) return;
         closePopup(openPopup);
+        // The editor opened from Settings gives Settings back, on the Manage profiles page, when it is left.
+        final boolean fromSettings = editor;
         final ViewGroup host = (ViewGroup) root.getParent();
         final int focusability = root.getDescendantFocusability();
         root.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);   // nothing under the picker takes keys
         profilePicker = new ProfilePicker(this, chosen -> {
             profileChosen = true;
-            if (loadedProfileId != null && !loadedProfileId.equals(chosen.id)) {
-                // Each profile has its own arrangement of the apps: the screen is built again with theirs. The picker
-                // stays up meanwhile, and the new screen starts under a cover, so the last person's Home is never seen.
-                coverOnStart = true;
-                recreate();
-                return;
-            }
+            Profiles.markChosen(this);
             final ProfilePicker picker = profilePicker;
             root.setDescendantFocusability(focusability);
             applyProfile();
-            picker.animate().alpha(0f).setDuration(180).withEndAction(() -> {
+            // Another person: Home is rebuilt with their arrangement right here, behind the picker, which then fades
+            // away on it. No restart, so no black screen between the two.
+            final boolean switched = loadedProfileId != null && !loadedProfileId.equals(chosen.id);
+            if (switched) rebuildForProfile(chosen);
+            picker.animate().alpha(0f).setDuration(switched ? 300 : 180).withEndAction(() -> {
                 host.removeView(picker);
                 if (profilePicker == picker) profilePicker = null;
+                if (fromSettings) {
+                    root.post(() -> {
+                        if (!isFinishing() && !isDestroyed() && openPopup == null) showSettingsPanel(profilesRowIndex, false, true);
+                    });
+                    return;
+                }
                 root.post(() -> focusTile(Math.min(Math.max(0, lastFocused), Math.max(0, adapter.appCount() - 1))));
             }).start();
         });
         host.addView(profilePicker, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        profilePicker.start();
+        if (editor) profilePicker.startEdit(target);
+        else profilePicker.start();
+    }
+
+    /** Home with another profile's arrangement of the apps (and its shortcuts from the library), in place. */
+    private void rebuildForProfile(Profiles.Profile p) {
+        loadedProfileId = p.id;
+        Order saved = Order.load(Order.file(this));
+        adapter.setSavedOrder(Order.ranks(saved, dockApps), Order.docked(saved, dockApps));
+        adapter.setProfileHidden(Profiles.hidden(this, p.id));
+        lastFocused = 0;
+        lastFocusedKey = null;
+        reloadApps(true, true, true);
+    }
+
+    /** Switch to a profile from Settings, without the picker. */
+    private void switchProfile(Profiles.Profile p) {
+        Profiles.setActive(this, p.id);
+        applyProfile();
+        if (loadedProfileId != null && !loadedProfileId.equals(p.id)) rebuildForProfile(p);
+    }
+
+    // ---- Settings: manage profiles --------------------------------------------------------------------------------
+    private int profilesSettingsIndex = -1;
+
+    /** The people of this TV: pick one to switch to, edit or delete, or add another. */
+    private void fillProfileRows(View panel, PopupWindow popup) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final int h = (int) (56 * density);
+        if (pageReturnIndex >= 0) profilesSettingsIndex = pageReturnIndex;
+        ((SidePopup) popup).backHandler = () -> {
+            ((SidePopup) popup).backHandler = null;
+            pageReturnIndex = profilesSettingsIndex;
+            swapPanelContent(panel, getString(R.string.settings), false, () -> fillSettingsRows(panel, popup));
+        };
+        Profiles.Profile active = Profiles.active(this);
+        for (Profiles.Profile p : Profiles.list(this)) {
+            View row = addMenuRow(rows, popup, R.drawable.ic_menu_person, p.name, () -> {
+                pageReturnIndex = -1;
+                swapPanelContent(panel, p.name, true, () -> fillProfileActions(panel, popup, p));
+            }, false);
+            ImageView icon = row.findViewById(R.id.icon);
+            icon.setImageTintList(null);
+            icon.setImageDrawable(new ProfileAvatar(this, p.shape, p.color, (int) (44 * density)));
+            row.getLayoutParams().height = h;
+            if (active != null && active.id.equals(p.id)) setRowStatus(row, getString(R.string.profile_current));
+        }
+        View add = addMenuRow(rows, popup, R.drawable.ic_menu_person, getString(R.string.profile_add), () -> showProfilePicker(true, null));
+        add.getLayoutParams().height = h;
+    }
+
+    /** Every app of the TV, ticked when this person sees it on Home. */
+    private void fillProfileApps(View panel, PopupWindow popup, Profiles.Profile p) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final int h = (int) (56 * density);
+        ((SidePopup) popup).backHandler = () -> {
+            pageReturnIndex = -1;
+            Profiles.Profile now = Profiles.active(this);
+            if (now != null && now.id.equals(p.id)) {   // the person in use changed what they see: Home follows
+                adapter.setProfileHidden(Profiles.hidden(this, p.id));
+                reloadApps(true, true, false);
+            }
+            swapPanelContent(panel, p.name, false, () -> fillProfileActions(panel, popup, p));
+        };
+        PackageManager pm = getPackageManager();
+        java.util.Map<String, String> apps = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (String category : new String[]{Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
+            for (ResolveInfo ri : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(category), 0)) {
+                String pkg = ri.activityInfo.packageName;
+                if (pkg.equals(getPackageName()) || !seen.add(pkg)) continue;
+                String label = String.valueOf(ri.loadLabel(pm));
+                while (apps.containsKey(label)) label = label + " ";
+                apps.put(label, pkg);
+            }
+        }
+        java.util.Set<String> hidden = Profiles.hidden(this, p.id);
+        for (java.util.Map.Entry<String, String> a : apps.entrySet()) {
+            final String pkg = a.getValue();
+            final View[] self = new View[1];
+            self[0] = addMenuRow(rows, popup, 0, a.getKey().trim(), () -> {
+                boolean nowHidden = !Profiles.hidden(this, p.id).contains(pkg);
+                Profiles.setHidden(this, p.id, pkg, nowHidden);
+                self[0].findViewById(R.id.check).setVisibility(nowHidden ? View.GONE : View.VISIBLE);
+            }, false);
+            self[0].getLayoutParams().height = h;
+            if (!hidden.contains(pkg)) self[0].findViewById(R.id.check).setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void fillProfileActions(View panel, PopupWindow popup, Profiles.Profile p) {
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        final int h = (int) (56 * density);
+        final Runnable backToList = () -> {
+            pageReturnIndex = -1;
+            swapPanelContent(panel, getString(R.string.profile_manage_title), false, () -> fillProfileRows(panel, popup));
+        };
+        ((SidePopup) popup).backHandler = backToList;
+        Profiles.Profile active = Profiles.active(this);
+        boolean isActive = active != null && active.id.equals(p.id);
+        if (!isActive) {
+            addMenuRow(rows, popup, R.drawable.ic_menu_person, getString(R.string.profile_switch_to, p.name), () -> switchProfile(p))
+                    .getLayoutParams().height = h;
+        }
+        addMenuRow(rows, popup, R.drawable.ic_settings, getString(R.string.profile_edit_one), () -> showProfilePicker(true, p))
+                .getLayoutParams().height = h;
+        if (!Profiles.isMain(this, p.id)) {
+            // The first profile has every app; the others choose which ones they see.
+            View apps = addMenuRow(rows, popup, R.drawable.ic_apps, getString(R.string.profile_apps), () -> {
+                pageReturnIndex = -1;
+                swapPanelContent(panel, getString(R.string.profile_apps), true, () -> fillProfileApps(panel, popup, p));
+            }, false);
+            apps.getLayoutParams().height = h;
+            int hiddenCount = Profiles.hidden(this, p.id).size();
+            if (hiddenCount > 0) setRowStatus(apps, String.valueOf(hiddenCount));
+        }
+        if (Profiles.list(this).size() > 1) {
+            addMenuRow(rows, popup, R.drawable.ic_menu_delete, getString(R.string.profile_delete), () -> {
+                Profiles.delete(this, p.id);
+                Profiles.Profile now = Profiles.active(this);
+                if (now != null && loadedProfileId != null && !loadedProfileId.equals(now.id)) {
+                    applyProfile();
+                    rebuildForProfile(now);
+                }
+                backToList.run();
+            }, false).getLayoutParams().height = h;
+        }
     }
 
     private AudioOutput audioOutput;

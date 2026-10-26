@@ -55,19 +55,78 @@ final class ProfilePicker extends FrameLayout {
         setClickable(true);
         setFocusable(false);
         setDescendantFocusability(FOCUS_AFTER_DESCENDANTS);
-        // Keep the screen stationary on Android TV: do not pan or push the window when keyboard opens.
+        // The TV's keyboard would open by itself over the name and take the arrow keys, so the window starts with it hidden
+        // and the screen does not pan. That is only for the start: "always hidden" is applied every time the window gets
+        // the focus back, and the keyboard's microphone opens the Google voice screen, so on coming back it hid the
+        // keyboard and dropped the dictated text. After the first moment the window leaves the keyboard as it is.
         if (context instanceof android.app.Activity) {
-            ((android.app.Activity) context).getWindow().setSoftInputMode(
-                    android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+            final android.view.Window window = ((android.app.Activity) context).getWindow();
+            window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
                     | android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+            postDelayed(() -> window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+                    | android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED), 900);
         }
     }
+
+    private boolean fromSettings;
+    /** Only the first showing of the list slides in; the Edit toggle redraws it plainly. */
+    private boolean entrance = true;
 
     // ---- entry points ------------------------------------------------------------------------------------------------
     /** First run: nobody yet, so ask for a name. Otherwise the list of people. */
     void start() {
+        fromSettings = false;
+        // The screen stays dark until the window is really in front, then comes in. At power-on the launcher starts while the
+        // boot animation still covers the screen: a fade that began at once was over before anyone could see it.
+        setAlpha(0f);
+        waitingToShow = true;
         if (Profiles.list(getContext()).isEmpty()) showEditor(null, true);
         else showChooser();
+        // A launcher that never gets the focus event (already in front) still shows itself.
+        postDelayed(this::showNow, 2500);
+    }
+
+    private boolean waitingToShow;
+    private LinearLayout entranceCol, entranceRow;
+
+    /** The texts fade in, then each picture rises in turn. */
+    private void playEntrance() {
+        LinearLayout col = entranceCol, row = entranceRow;
+        if (col == null || row == null) return;
+        entranceCol = entranceRow = null;
+        for (int i = 0; i < col.getChildCount(); i++) {
+            View v = col.getChildAt(i);
+            if (v == row) continue;
+            v.animate().alpha(1f).setStartDelay(60 + i * 60L).setDuration(520).start();
+        }
+        for (int i = 0; i < row.getChildCount(); i++) {
+            View v = row.getChildAt(i);
+            v.animate().alpha(1f).translationY(0f).setStartDelay(220 + i * 110L).setDuration(640)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.8f)).start();
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasWindowFocus) {
+        super.onWindowFocusChanged(hasWindowFocus);
+        if (hasWindowFocus && waitingToShow) {
+            // Within the first minute or so after power-on the boot animation may still be fading out: wait a little longer.
+            boolean justBooted = android.os.SystemClock.elapsedRealtime() < 90_000;
+            postDelayed(this::showNow, justBooted ? 1600 : 150);
+        }
+    }
+
+    private void showNow() {
+        if (!waitingToShow) return;
+        waitingToShow = false;
+        animate().alpha(1f).setDuration(650).setInterpolator(new android.view.animation.DecelerateInterpolator(1.4f)).start();
+        playEntrance();
+    }
+
+    /** Open directly to edit a profile (p) or add one (null) from Settings. */
+    void startEdit(Profiles.Profile p) {
+        fromSettings = true;
+        showEditor(p, false);
     }
 
     /** Back: out of the editor to the list. The list itself cannot be left without choosing someone. */
@@ -76,6 +135,10 @@ final class ProfilePicker extends FrameLayout {
         if (Boolean.TRUE.equals(page.getTag())) {   // the editor
             if (firstRun) return true;
             hideKeyboard();
+            if (fromSettings) {
+                leaveToSettings();
+                return true;
+            }
             showChooser();
             return true;
         }
@@ -126,6 +189,18 @@ final class ProfilePicker extends FrameLayout {
         addView(col, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         unclip(this);
         (first != null ? first : add).requestFocus();
+        if (entrance) {
+            // The first showing (after boot) comes in rather than appearing: the texts fade, each picture rises in turn.
+            entrance = false;
+            entranceCol = col;
+            entranceRow = row;
+            for (int i = 0; i < col.getChildCount(); i++) if (col.getChildAt(i) != row) col.getChildAt(i).setAlpha(0f);
+            for (int i = 0; i < row.getChildCount(); i++) {
+                row.getChildAt(i).setAlpha(0f);
+                row.getChildAt(i).setTranslationY(30 * d);
+            }
+            if (!waitingToShow) playEntrance();
+        }
     }
 
     private final java.util.Map<String, View> tiles = new java.util.HashMap<>();
@@ -182,7 +257,7 @@ final class ProfilePicker extends FrameLayout {
         greet.setTranslationY(16 * d);
         greet.animate().alpha(1f).translationY(0f).setStartDelay(260).setDuration(460)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
-        postDelayed(() -> listener.onChosen(p), 1500);
+        postDelayed(() -> listener.onChosen(p), 480);
     }
 
     // ---- the editor ------------------------------------------------------------------------------------------------
@@ -275,10 +350,10 @@ final class ProfilePicker extends FrameLayout {
                     paint.setShader(ProfileAvatar.gradientShader(c, new RectF(0, 0, getWidth(), getHeight())));
                     canvas.drawCircle(cx, cy, r - 1.5f * d, paint);
                     paint.setShader(null);
-                    if (isFocused() || isSelected() || color == c) {
+                    if (color == c || isFocused()) {
                         paint.setStyle(Paint.Style.STROKE);
                         paint.setStrokeWidth(3 * d);
-                        paint.setColor(0xFFFFFFFF);
+                        paint.setColor(color == c ? 0xFFFFFFFF : 0x80FFFFFF);
                         canvas.drawCircle(cx, cy, r - 1.5f * d, paint);
                     }
                 }
@@ -291,14 +366,9 @@ final class ProfilePicker extends FrameLayout {
                 colors.invalidate();
                 for (int k = 0; k < colors.getChildCount(); k++) colors.getChildAt(k).invalidate();
             });
+            // Moving over the colours only moves the focus; a colour is chosen with OK, like the character.
             v.setOnFocusChangeListener((x, f) -> {
                 x.animate().scaleX(f ? 1.15f : 1f).scaleY(f ? 1.15f : 1f).setDuration(120).start();
-                if (f) {
-                    color = c;
-                    refreshPreview();
-                    refreshShapes();
-                    for (int k = 0; k < colors.getChildCount(); k++) colors.getChildAt(k).invalidate();
-                }
                 x.invalidate();
             });
             colors.addView(v, new LinearLayout.LayoutParams((int) (40 * d), (int) (40 * d)) {{ leftMargin = rightMargin = (int) (6 * d); }});
@@ -314,7 +384,8 @@ final class ProfilePicker extends FrameLayout {
             TextView cancel = button(getContext().getString(R.string.profile_cancel));
             cancel.setOnClickListener(v -> {
                 hideKeyboard();
-                showChooser();
+                if (fromSettings) leaveToSettings();
+                else showChooser();
             });
             buttons.addView(cancel, new LinearLayout.LayoutParams((int) (150 * d), (int) (46 * d)) {{ leftMargin = rightMargin = (int) (6 * d); }});
         }
@@ -323,7 +394,8 @@ final class ProfilePicker extends FrameLayout {
             del.setOnClickListener(v -> {
                 Profiles.delete(getContext(), p.id);
                 hideKeyboard();
-                showChooser();
+                if (fromSettings) leaveToSettings();
+                else showChooser();
             });
             buttons.addView(del, new LinearLayout.LayoutParams((int) (170 * d), (int) (46 * d)) {{ leftMargin = rightMargin = (int) (6 * d); }});
         }
@@ -352,9 +424,18 @@ final class ProfilePicker extends FrameLayout {
         if (firstRun || editing == null) {
             Profiles.setActive(getContext(), saved.id);
             finish(saved, null);
+        } else if (fromSettings) {
+            leaveToSettings();
         } else {
             showChooser();
         }
+    }
+
+    /** Opened from Settings: the editor is the whole job, so leaving it closes the screen (the launcher gets the profile in use). */
+    private void leaveToSettings() {
+        Profiles.Profile act = Profiles.active(getContext());
+        if (act != null) listener.onChosen(act);
+        else showChooser();
     }
 
     private void refreshPreview() {
@@ -512,7 +593,7 @@ final class ProfilePicker extends FrameLayout {
             if (isSelected() || isFocused() || chosen) {
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(3 * d);
-                paint.setColor(0xFFFFFFFF);
+                paint.setColor(chosen || isSelected() ? 0xFFFFFFFF : 0x80FFFFFF);
                 canvas.drawCircle(b.centerX(), b.centerY(), Math.min(b.width(), b.height()) / 2f - 1.5f * d, paint);
             }
         }

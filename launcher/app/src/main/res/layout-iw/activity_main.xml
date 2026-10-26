@@ -180,6 +180,7 @@
                 android:gravity="right|bottom">
 
                 <LinearLayout
+                    android:id="@+id/dateBox"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom"
@@ -218,6 +219,7 @@
                 </LinearLayout>
 
                 <View
+                    android:id="@+id/clockDivider"
                     android:layout_width="1dp"
                     android:layout_height="26dp"
                     android:layout_gravity="bottom"
@@ -365,13 +367,21 @@
         </RelativeLayout>
 
         <!-- The wrapper clips at the grid's edge; the grid itself must not clip so scaled tiles can overflow their cells. -->
+        <!-- Kept hidden: this layout has no "Your apps" header, but the launcher sets its text. -->
+        <TextView
+            android:id="@+id/sectionTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/your_apps"
+            android:visibility="gone" />
+
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:layout_marginTop="10dp">
 
-            <androidx.recyclerview.widget.RecyclerView
+        <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/grid"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -385,6 +395,25 @@
                 android:scrollbars="none"
                 android:descendantFocusability="afterDescendants" />
         </FrameLayout>
+        <!-- Done button in reorder mode, centred under the apps. -->
+        <TextView
+            android:id="@+id/btnDoneReorder"
+            style="@style/TopButton"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:minWidth="78dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginStart="0dp"
+            android:layout_marginTop="8dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:gravity="center"
+            android:background="@drawable/done_bg"
+            android:textColor="@drawable/done_text"
+            android:textSize="15sp"
+            android:text="@string/done"
+            android:visibility="gone"
+            android:nextFocusUp="@+id/grid" />
     </LinearLayout>
 
     <!-- The single floating glass highlight that springs between tiles. -->

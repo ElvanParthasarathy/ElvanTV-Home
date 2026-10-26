@@ -107,6 +107,42 @@ final class Profiles {
         return p == null || all.isEmpty() || all.get(0).id.equals(p.id) ? "" : "_" + p.id;
     }
 
+    /**
+     * The profile screen is for a start of the TV, not for every start of the launcher: Android kills the launcher when it
+     * needs memory, and asking again then would be a nuisance. So the choice is remembered with the boot it was made in.
+     */
+    static boolean chosenThisBoot(Context ctx) {
+        SharedPreferences p = prefs(ctx);
+        return p.getInt("boot", -1) == bootCount(ctx)
+                && android.os.SystemClock.elapsedRealtime() >= p.getLong("boot_at", Long.MAX_VALUE);
+    }
+
+    static void markChosen(Context ctx) {
+        prefs(ctx).edit().putInt("boot", bootCount(ctx)).putLong("boot_at", android.os.SystemClock.elapsedRealtime()).apply();
+    }
+
+    private static int bootCount(Context ctx) {
+        return android.provider.Settings.Global.getInt(ctx.getContentResolver(), android.provider.Settings.Global.BOOT_COUNT, 0);
+    }
+
+    /** The first profile is the main one: it has every app. The others can hide the ones they do not need. */
+    static boolean isMain(Context ctx, String id) {
+        List<Profile> all = list(ctx);
+        return all.isEmpty() || all.get(0).id.equals(id);
+    }
+
+    /** The apps this person does not want on Home (empty for the main profile). */
+    static java.util.Set<String> hidden(Context ctx, String id) {
+        if (id == null || isMain(ctx, id)) return new java.util.HashSet<>();
+        return new java.util.HashSet<>(prefs(ctx).getStringSet("hidden_" + id, new java.util.HashSet<>()));
+    }
+
+    static void setHidden(Context ctx, String id, String pkg, boolean hide) {
+        java.util.Set<String> now = hidden(ctx, id);
+        if (hide) now.add(pkg); else now.remove(pkg);
+        prefs(ctx).edit().putStringSet("hidden_" + id, now).apply();
+    }
+
     static String clean(String name) {
         String n = name == null ? "" : name.trim().replaceAll("\\s+", " ");
         if (n.length() > MAX_NAME) n = n.substring(0, MAX_NAME).trim();

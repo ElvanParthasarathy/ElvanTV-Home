@@ -24,12 +24,46 @@ public class RemapService extends AccessibilityService {
     }
 
     private static volatile Capture capture;
+    /** Android has bound the helper and it is running. "Enabled" in Settings is not the same: after an update or a slow boot it can be on but never bound. */
+    private static volatile boolean connected;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     /** The button the capture took on its key down, so its key up is swallowed too. */
     private int takenKey = Integer.MIN_VALUE;
 
     static void setCapture(Capture c) {
         capture = c;
+    }
+
+    @Override
+    protected void onServiceConnected() {
+        super.onServiceConnected();
+        connected = true;
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        connected = false;
+        return super.onUnbind(intent);
+    }
+
+    /**
+     * Settings says the helper is on and there are buttons to run, but Android has not bound it (seen on the Mi TV Stick
+     * after an update or a restart). Switching Android's accessibility switch off and on again makes it bind it. Needs the
+     * secure-settings grant.
+     */
+    static void repair(Context ctx) {
+        if (connected || !isEnabled(ctx)) return;
+        if (ctx.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return;
+        try {
+            Settings.Secure.putInt(ctx.getContentResolver(), Settings.Secure.ACCESSIBILITY_ENABLED, 0);
+            final Context app = ctx.getApplicationContext();
+            MAIN.postDelayed(() -> enable(app), 700);   // writes the list again and switches accessibility back on
+        } catch (SecurityException ignored) {
+        }
+    }
+
+    static boolean isConnected() {
+        return connected;
     }
 
     static boolean isEnabled(Context ctx) {

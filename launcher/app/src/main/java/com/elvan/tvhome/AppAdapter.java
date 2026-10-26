@@ -193,7 +193,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     /** Dock apps found at the last reload, and the empty slots after them. */
     private int docked, emptySlots;
     /** Never shown as tiles (res/values/config.xml, hidden_apps). */
-    private final Set<String> hidden;
+    private Set<String> hidden;
+    /** The theme's hidden_apps; the profile's own hidden apps are added to it. */
+    private final Set<String> configHidden;
     /** Apps pre-seeded into the App library's "added" set (config.xml library_apps); empty by default. */
     private final Set<String> libraryPreload;
     private final boolean animations;
@@ -220,7 +222,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         this.dockSize = dockSize;
         this.favourites = cfg.dockApps;
         this.fillDock = cfg.fillDock;
-        this.hidden = new HashSet<>(cfg.hiddenApps);
+        this.configHidden = new HashSet<>(cfg.hiddenApps);
+        this.hidden = new HashSet<>(configHidden);
         this.libraryPreload = new HashSet<>(cfg.libraryApps);
         this.animations = cfg.animations;
         this.advancedEffects = cfg.animations && cfg.advancedEffects;
@@ -424,8 +427,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         h.name.setVisibility(View.VISIBLE);
         boolean focused = h.card.isFocused();
         h.name.setAlpha(focused ? 1f : restNameAlpha);
-        h.name.setEllipsize(focused ? TextUtils.TruncateAt.MARQUEE : TextUtils.TruncateAt.END);
-        TitleScroller.set(h.name, focused);
+        h.name.setEllipsize(TextUtils.TruncateAt.END);   // two lines, then "…": a name no longer scrolls
         h.card.setScaleX(focused && animations ? focusScale() : 1f);
         h.card.setScaleY(focused && animations ? focusScale() : 1f);
         if (h.focusRing != null) {
@@ -470,6 +472,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
             return true;
         });
+    }
+
+    /** The apps the person in use has chosen not to see; the next reload leaves them out. */
+    void setProfileHidden(Set<String> profileHidden) {
+        Set<String> all = new HashSet<>(configHidden);
+        all.addAll(profileHidden);
+        hidden = all;
     }
 
     void open(Entry e) {
@@ -781,6 +790,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             icon = v.findViewById(R.id.icon);
             label = v.findViewById(R.id.label);
             name = v.findViewById(R.id.name);
+            if (name instanceof ScrollTextView) ((ScrollTextView) name).setUnclipped(true);
             reorderPrompt = v.findViewById(R.id.reorderPrompt);
             focusRing = v.findViewById(R.id.focusRing);
             this.animations = animations;
@@ -811,7 +821,6 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             card.setOnFocusChangeListener((view, focused) -> {
                 view.animate().cancel();
                 name.animate().cancel();
-                TitleScroller.set(name, focused);
                 if (focusRing != null) {
                     focusRing.animate().cancel();
                     if (focused) {
@@ -871,6 +880,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             card = v.findViewById(R.id.card);
             icon = v.findViewById(R.id.icon);
             name = v.findViewById(R.id.name);
+            if (name instanceof ScrollTextView) ((ScrollTextView) name).setUnclipped(true);
 
             // Keeps Left, Right and Down on the row: past the Reorder tile there is nothing, and the focus search would
             // otherwise jump to the top bar.

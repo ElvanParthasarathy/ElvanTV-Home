@@ -207,6 +207,10 @@
     <string name="profile_save">Save</string>
     <string name="profile_cancel">Cancel</string>
     <string name="profile_delete">Delete profile</string>
+    <string name="profile_active">Active</string>
+    <string name="profile_switch">Switch</string>
+    <string name="profile_switch_to">Switch to %1$s</string>
+    <string name="profile_manage_title">Manage profiles</string>
     <string name="about_title">About</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_designer">Designed by</string>
@@ -232,4 +236,7 @@
     <string name="remap_sys_date">Date and time</string>
     <string name="remap_sys_accessibility">Accessibility</string>
     <string name="remap_sys_developer">Developer options</string>
+    <string name="profile_current">Current</string>
+    <string name="profile_apps">Apps shown</string>
+    <string name="remap_starting">Starting the button helper, try again in a moment</string>
 </resources>

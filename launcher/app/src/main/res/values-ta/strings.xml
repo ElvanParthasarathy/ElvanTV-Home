@@ -184,6 +184,10 @@
     <string name="profile_save">சேமி</string>
     <string name="profile_cancel">வேண்டாம்</string>
     <string name="profile_delete">பயனரை நீக்கு</string>
+    <string name="profile_active">செயலில் உள்ளது</string>
+    <string name="profile_switch">மாற்று</string>
+    <string name="profile_switch_to">%1$s பயனருக்கு மாறு</string>
+    <string name="profile_manage_title">பயனர்களைக் கையாளு</string>
     <string name="about_title">பற்றி</string>
     <string name="about_version">பதிப்பு %1$s</string>
     <string name="about_designer">வடிவமைப்பு</string>
@@ -209,4 +213,7 @@
     <string name="remap_sys_date">நாளும் நேரமும்</string>
     <string name="remap_sys_accessibility">எளிதணுகல்</string>
     <string name="remap_sys_developer">நிரலர் தேர்வுகள்</string>
+    <string name="profile_current">தற்போதையது</string>
+    <string name="profile_apps">காட்டும் செயலிகள்</string>
+    <string name="remap_starting">உதவி தொடங்குகிறது, சிறிது நேரம் கழித்து மீண்டும் முயலவும்</string>
 </resources>
