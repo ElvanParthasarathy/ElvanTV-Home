@@ -169,6 +169,7 @@
     <string name="audio_failed">Couldn\'t switch the sound output</string>
     <string name="audio_builtin">Built in</string>
     <string name="audio_connected">Connected</string>
+    <string name="audio_connected_battery">Connected · battery %1$d%%</string>
     <string name="audio_not_connected">Saved, not connected</string>
     <string name="audio_add">Add a Bluetooth device</string>
     <string name="audio_add_hint">Pair a speaker or headphones</string>

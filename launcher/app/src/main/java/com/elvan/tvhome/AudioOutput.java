@@ -41,6 +41,17 @@ final class AudioOutput {
         boolean connecting() {
             return state == BluetoothProfile.STATE_CONNECTING;
         }
+
+        /** Battery percent the headphones report, or -1 when they or this TV don't (the call is not public API). */
+        int battery() {
+            try {
+                Object v = BluetoothDevice.class.getMethod("getBatteryLevel").invoke(device);
+                int level = v instanceof Integer ? (Integer) v : -1;
+                return level >= 0 && level <= 100 ? level : -1;
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                return -1;
+            }
+        }
     }
 
     private final Context context;

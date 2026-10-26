@@ -4033,7 +4033,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             row.getLayoutParams().height = rowHeight;
             if (s.connected()) {
                 audioPending.remove(address);
-                setRowStatus(row, getString(R.string.audio_connected));
+                int battery = s.battery();
+                setRowStatus(row, battery < 0 ? getString(R.string.audio_connected)
+                        : getString(R.string.audio_connected_battery, battery));
                 row.findViewById(R.id.check).setVisibility(View.VISIBLE);
                 row.setTag(R.id.check, Boolean.TRUE);
             } else if (s.connecting() || audioPending.contains(address)) {

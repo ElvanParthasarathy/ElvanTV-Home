@@ -146,6 +146,7 @@
     <string name="audio_failed">மாற்ற இயலவில்லை</string>
     <string name="audio_builtin">உள்ளமைந்தது</string>
     <string name="audio_connected">இணைந்தது</string>
+    <string name="audio_connected_battery">இணைந்தது · மின்கலம் %1$d%%</string>
     <string name="audio_not_connected">இணைக்கவில்லை</string>
     <string name="audio_add">புளூடூத் கருவி சேர்</string>
     <string name="audio_add_hint">ஒலிபெருக்கி / காதொலிப்பான்</string>
