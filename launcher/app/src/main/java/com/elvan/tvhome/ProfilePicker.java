@@ -85,14 +85,10 @@ final class ProfilePicker extends FrameLayout {
      */
     void start(boolean atLaunch) {
         fromSettings = false;
-        // The screen stays dark until the window is really in front, then comes in. At power-on the launcher starts while the
-        // boot animation still covers the screen: a fade that began at once was over before anyone could see it.
-        waitingToShow = atLaunch;
-        setAlpha(atLaunch ? 0f : 1f);
+        waitingToShow = false;
+        setAlpha(1f);
         if (Profiles.list(getContext()).isEmpty()) showEditor(null, true);
         else showChooser();
-        // A launcher that never gets the focus event (already in front) still shows itself.
-        if (atLaunch) postDelayed(this::showNow, 2500);
     }
 
     private boolean waitingToShow;
@@ -328,6 +324,8 @@ final class ProfilePicker extends FrameLayout {
         // The shapes, then the colours.
         LinearLayout shapes = new LinearLayout(getContext());
         shapes.setGravity(Gravity.CENTER);
+        shapes.setClipChildren(false);
+        shapes.setClipToPadding(false);
         for (int i = 0; i < ProfileAvatar.CHARACTERS; i++) {
             final int s = i;
             AvatarView v = new AvatarView(getContext(), s, color, true);
@@ -347,6 +345,8 @@ final class ProfilePicker extends FrameLayout {
         col.addView(shapes, lp(0, 20, 0, 0));
         LinearLayout colors = new LinearLayout(getContext());
         colors.setGravity(Gravity.CENTER);
+        colors.setClipChildren(false);
+        colors.setClipToPadding(false);
         for (int i = 0; i < ProfileAvatar.GRADIENTS.length; i++) {
             final int c = i;
             View v = new View(getContext()) {
@@ -504,6 +504,8 @@ final class ProfilePicker extends FrameLayout {
         t.setGravity(Gravity.CENTER_HORIZONTAL);
         t.setFocusable(true);
         t.setClickable(true);
+        t.setClipChildren(false);
+        t.setClipToPadding(false);
         AvatarView v = plus ? new AvatarView(getContext(), -1, 0, false) : null;
         View face = plus ? v : new AvatarView(getContext(), avatar);
         t.addView(face, new LinearLayout.LayoutParams((int) (104 * d), (int) (104 * d)) {{ topMargin = (int) (6 * d); }});

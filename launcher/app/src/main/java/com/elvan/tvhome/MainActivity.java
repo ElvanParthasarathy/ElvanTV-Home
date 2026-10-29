@@ -699,7 +699,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         // Not after recreate(): the launch intent survives it and would open the settings again.
         if (savedInstanceState == null && !openInputsIfAsked(getIntent())) openSettingsIfAsked(getIntent());
-        if (!overlayMode()) startProfileFlow();
+        if (!overlayMode()) root.post(this::startProfileFlow);
         else hideHomeForOverlay();   // nothing of Home is shown, only the panel
     }
 
@@ -3754,16 +3754,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private ProfilePicker profilePicker;
     private TextView btnProfile;
 
-    /** At start: nobody yet asks for a name, one person goes straight in, several choose. */
+    /** At start: show profile selection on boot so the user can choose their profile. */
     private void startProfileFlow() {
         if (!profileChosen) {
             java.util.List<Profiles.Profile> all = Profiles.list(this);
             if (!all.isEmpty() && Profiles.chosenThisBoot(this)) {
                 // Android restarted the launcher (memory) after this start of the TV's choice was made: no questions.
-                profileChosen = true;
-            } else if (all.size() == 1) {
-                Profiles.setActive(this, all.get(0).id);
-                Profiles.markChosen(this);
                 profileChosen = true;
             } else {
                 showProfilePicker(false, null, true);
@@ -3777,13 +3773,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void applyProfile() {
         Profiles.Profile p = Profiles.active(this);
         if (p != null) greetingName = p.name;
-        if (btnProfile != null && p != null) {
-            // The picture fills the round button (it is a person, not an icon), so it is bigger than the others.
-            btnProfile.setPadding((int) (4 * density), 0, (int) (4 * density), 0);
-            btnProfile.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                    new ProfileAvatar(this, p.shape, p.color, (int) (34 * density)), null, null, null);
-            btnProfile.setCompoundDrawableTintList(null);
-            btnProfile.setContentDescription(p.name);
+        if (btnProfile != null) {
+            if (p != null) {
+                btnProfile.setVisibility(View.VISIBLE);
+                // The picture fills the round button (it is a person, not an icon), so it is bigger than the others.
+                btnProfile.setPadding((int) (4 * density), 0, (int) (4 * density), 0);
+                btnProfile.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                        new ProfileAvatar(this, p.shape, p.color, (int) (34 * density)), null, null, null);
+                btnProfile.setCompoundDrawableTintList(null);
+                btnProfile.setContentDescription(p.name);
+            } else {
+                btnProfile.setVisibility(View.GONE);
+            }
         }
         updateGreeting();
     }
@@ -3802,7 +3803,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         closePopup(openPopup);
         // The editor opened from Settings gives Settings back, on the Manage profiles page, when it is left.
         final boolean fromSettings = editor;
-        final ViewGroup host = (ViewGroup) root.getParent();
+        ViewGroup parent = (root.getParent() instanceof ViewGroup) ? (ViewGroup) root.getParent() : (ViewGroup) findViewById(android.R.id.content);
+        final ViewGroup host = parent != null ? parent : root;
         final int focusability = root.getDescendantFocusability();
         root.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);   // nothing under the picker takes keys
         profilePicker = new ProfilePicker(this, chosen -> {

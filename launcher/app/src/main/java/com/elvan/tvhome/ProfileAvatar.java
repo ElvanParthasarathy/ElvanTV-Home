@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.RadialGradient;
 import android.graphics.RectF;
@@ -66,24 +67,25 @@ final class ProfileAvatar extends Drawable {
     }
 
     private void render(Canvas c, int d) {
+        Path circle = new Path();
+        circle.addCircle(d / 2f, d / 2f, d / 2f, Path.Direction.CW);
+        c.save();
+        c.clipPath(circle);
+
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         RectF all = new RectF(0, 0, d, d);
         p.setShader(gradientShader(gradient, all));
-        c.drawCircle(d / 2f, d / 2f, d / 2f, p);
+        c.drawRect(all, p);
         // A soft light from the top left over the gradient.
         p.setShader(new RadialGradient(d * 0.3f, d * 0.25f, d * 0.7f, 0x33FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
-        c.drawCircle(d / 2f, d / 2f, d / 2f, p);
-        // The character: its drawing has a 4-unit margin round a circle of radius 60 on a 128 grid; scaled so that circle fills ours.
+        c.drawRect(all, p);
+        // The character: cleanly clipped to the circular disc so no hair, hat, or shoulders spill outside.
         Drawable vector = context.getDrawable(CHARACTER_DRAWABLES[character]);
-        if (vector == null) return;
-        vector = vector.mutate();
-        c.save();
-        c.translate(d / 2f, d / 2f);
-        float s = 128f / 120f;
-        c.scale(s, s);
-        c.translate(-d / 2f, -d / 2f);
-        vector.setBounds(0, 0, d, d);
-        vector.draw(c);
+        if (vector != null) {
+            vector = vector.mutate();
+            vector.setBounds(0, 0, d, d);
+            vector.draw(c);
+        }
         c.restore();
     }
 
