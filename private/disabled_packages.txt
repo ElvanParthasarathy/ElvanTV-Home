@@ -1,0 +1,55 @@
+# Xiaomi Mi TV 4A / 4C Pro (MiTV-AXSO0, codename dangal, Android 9 Pie)
+# Complete list of 38 packages disabled for maximum speed and zero bloat.
+# All packages were disabled via `pm disable-user --user 0` (never uninstalled).
+
+# Stock Launcher (Replaced with ElvanTV-Home)
+com.google.android.tvlauncher
+com.google.android.leanbacklauncher
+com.google.android.leanbacklauncher.recommendations
+
+# PatchWall & Ad Recommendation Services
+com.mitv.tvhome.atv
+com.mitv.tvhome.mitvplus
+com.xm.webcontent
+com.xiaomi.floatingframe
+com.google.android.tvrecommendations
+android.autoinstalls.config.xioami.dangal
+
+# Xiaomi & Google Telemetry, Analytics, Bug Reports
+com.miui.tv.analytics
+com.xiaomi.statistic
+com.google.android.feedback
+com.google.android.tv.bugreportsender
+
+# Xiaomi Background Daemons & EOL Services
+com.xiaomi.mitv.updateservice
+com.mitv.milinkservice
+com.mitv.dream
+com.xiaomi.mitv.tvmanager
+com.xiaomi.mitv.handbook
+com.xiaomo.tv.milegal
+com.mitv.tvlock
+
+# Preloaded Redundant Media & Music
+com.google.android.youtube.tvmusic
+com.xiaomi.mimusic2
+com.android.gallery3d
+com.google.android.videos
+com.google.android.play.games
+
+# Voice Assistant Mic / Talkback (User preference)
+com.google.android.speech.pumpkin
+com.google.android.marvin.talkback
+
+# Unused System Helpers & Sync Adapters
+com.google.android.tts
+com.google.android.backdrop
+com.google.android.syncadapters.calendar
+com.android.providers.calendar
+com.android.providers.contacts
+com.android.camera2
+com.android.printspooler
+com.android.smspush
+com.android.wallpapercropper
+com.android.wallpaperbackup
+com.xiaomi.android.tvsetup.partnercustomizer

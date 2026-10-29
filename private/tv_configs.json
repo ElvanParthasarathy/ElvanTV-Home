@@ -1,0 +1,47 @@
+{
+  "device": {
+    "brand": "Xiaomi",
+    "model": "Mi TV 4A Pro / 4C Pro",
+    "product_code": "MiTV-AXSO0",
+    "codename": "dangal",
+    "platform": "Amlogic txlx",
+    "os_version": "Android TV 9 (Pie)",
+    "sdk": 28,
+    "ram_mb": 1024
+  },
+  "launcher": {
+    "package": "com.elvan.tvhome",
+    "stock_launcher_disabled": "com.google.android.tvlauncher",
+    "live_tv_package": "com.android.tv",
+    "greeting_lead": "Vanakkam,",
+    "screensaver": "com.elvan.tvhome/.ClockDream"
+  },
+  "system_optimizations": {
+    "window_animation_scale": 0.5,
+    "transition_animation_scale": 0.5,
+    "animator_duration_scale": 0.5,
+    "max_cached_processes": 4
+  },
+  "dock_apps": [
+    "com.google.android.youtube.tv",
+    "com.netflix.ninja",
+    "in.startv.hotstar",
+    "com.jio.media.ondemand",
+    "com.jio.jioplay.tv",
+    "com.amazon.amazonvideo.livingroom",
+    "com.yablio.sendfilestotv",
+    "com.sonyliv",
+    "com.graymatrix.did",
+    "com.android.vending",
+    "com.xiaomi.mitv.mediaexplorer",
+    "com.mitv.gallery",
+    "com.mitv.videoplayer"
+  ],
+  "preserved_usb_playback": [
+    "com.xiaomi.mitv.mediaexplorer",
+    "com.mitv.gallery",
+    "com.mitv.videoplayer",
+    "com.android.externalstorage"
+  ],
+  "total_disabled_packages": 38
+}
