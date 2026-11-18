@@ -665,14 +665,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (festive) applyFestiveSkin((TextView) btnInputs, (TextView) btnSettings);
 
-        // Hide the glass when focus leaves the tiles.
-        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
-            boolean onTile = newF != null && newF.getId() == R.id.card;
-            if (!onTile) {
-                hideGlass();
-                if (ambientGlow) ambient.animate().alpha(0f).setDuration(220).start();
-            }
-        });
+        // Removed in onDestroy: recreate() keeps the window, so a listener left here retains the old Home.
+        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener(glassFocusListener);
 
         packageFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
         packageFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
@@ -687,7 +681,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             registerReceiver(packageReceiver, packageFilter);
         }
 
-        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        // Android 12's ConnectivityManager can retain the context used to create it. Use the application so a
+        // settings-triggered recreate() cannot keep this activity, its views and its bitmaps alive.
+        ConnectivityManager cm = getApplicationContext().getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) tim.registerCallback(inputCallback, handler);
         if (cm != null) {
@@ -1067,13 +1063,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
+    /** Hides the glass and ambient glow when focus leaves the tiles. */
+    private final ViewTreeObserver.OnGlobalFocusChangeListener glassFocusListener = (oldF, newF) -> {
+        boolean onTile = newF != null && newF.getId() == R.id.card;
+        if (!onTile) {
+            hideGlass();
+            if (ambientGlow) ambient.animate().alpha(0f).setDuration(220).start();
+        }
+    };
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        ViewTreeObserver tree = getWindow().getDecorView().getViewTreeObserver();
+        if (tree.isAlive()) tree.removeOnGlobalFocusChangeListener(glassFocusListener);
         if (audioOutput != null) audioOutput.close();
         unregisterReceiver(packageReceiver);
         wallpaperPlayer.close();
-        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        ConnectivityManager cm = getApplicationContext().getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) tim.unregisterCallback(inputCallback);
         if (cm != null) {
@@ -2515,7 +2522,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         int flame = 0;
         boolean steady = false;
         try {
-            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            ConnectivityManager cm = getApplicationContext().getSystemService(ConnectivityManager.class);
             boolean wifi = false, ethernet = false;
             // All networks, not just the active one: with a VPN up the active network is the VPN itself.
             for (Network net : cm != null ? cm.getAllNetworks() : new Network[0]) {

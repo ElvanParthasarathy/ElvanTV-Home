@@ -207,6 +207,7 @@
                         android:textSize="26sp"
                         android:fontFamily="@string/font_regular"
                         android:letterSpacing="0"
+                        android:fontFeatureSettings="tnum"
                         android:includeFontPadding="false" />
 
                     <TextClock
