@@ -208,6 +208,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // scroll moves the glass in lockstep with its tile instead of becoming a moving spring target.
     private float glassScrollShift;
     private int glassCardW;   // width of the tile the glass was last fitted to
+    /** Last focused tile bounds in root coordinates; size alone cannot detect a cold-start position shift. */
+    private final Rect glassCardRect = new Rect();
     private boolean glassShown;
     private final Rect tileRect = new Rect();
     private final Rect revealRect = new Rect();
@@ -987,6 +989,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onPause() {
         super.onPause();
+        cancelHoldOk();
         RemapService.setCapture(null);   // a half-finished "press a button" must never keep swallowing the remote's keys
         homeResumed = false;
         if (!overlayMode()) homeInFront = false;
@@ -1053,7 +1056,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (!hasFocus) root.removeCallbacks(reopenRun);
+        if (!hasFocus) {
+            root.removeCallbacks(reopenRun);
+            cancelHoldOk();
+        }
         if (hasFocus) {
             // The window has placed its first focus (on the row, since the top bar was closed): open the bar again.
             root.post(this::openTopBar);
@@ -1075,6 +1081,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        cancelHoldOk();
         ViewTreeObserver tree = getWindow().getDecorView().getViewTreeObserver();
         if (tree.isAlive()) tree.removeOnGlobalFocusChangeListener(glassFocusListener);
         if (audioOutput != null) audioOutput.close();
@@ -1128,6 +1135,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return super.dispatchKeyEvent(event);
         }
         if (handleSettingsKey(event)) return true;
+        if (holdOk(event)) return true;
         if (tileMenuEnabled && !reordering && openPopup == null && cardPrompt == null
                 && event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
             int position = focusedTilePosition();
@@ -1354,9 +1362,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 adapter.move(pos, slot);
                 adapter.move(adapter.positionOf(slotKey), pos);
             });
-            dockInSession.add(adapter.keyAt(slot));
             if (pos >= COLUMNS) dockInSession.remove(slotKey);
         }
+        // With no empty slots shown, the selected app may already occupy the free place; it still joins the dock.
+        dockInSession.add(adapter.keyAt(slot));
         endReorder();
         refocusAfterLayout(slot);
     }
@@ -1654,6 +1663,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             glass.setRadius(AppAdapter.cornerRadius(card.getWidth(), density) * scale);
         }
         glassCardW = card.getWidth();
+        glassCardRect.set(r);
         glassTargetX = x;
         glassTargetY = y;
         // Cinematic shelf: the highlight glows in the dock app's colour, plain white in the grid (and on the dock with
@@ -1702,7 +1712,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         float scale = adapter.focusScale();
         int w = (int) (card.getWidth() * scale + 2 * pad);
         int h = (int) (card.getHeight() * scale + 2 * pad);
-        if (!glassShown || card.getWidth() != glassCardW || glass.getWidth() != w || glass.getHeight() != h) {
+        Rect r = tileRect;
+        r.set(0, 0, card.getWidth(), card.getHeight());
+        root.offsetDescendantRectToMyCoords(card, r);
+        if (!glassShown || card.getWidth() != glassCardW || glass.getWidth() != w || glass.getHeight() != h
+                || !glassCardRect.equals(r)) {
             onTileFocused(pos, card);
         }
     }
@@ -3311,6 +3325,78 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     // ---- launcher settings and module cards -------------------------------------------------------
 
+    // View's own long-click can miss when a remote sends repeat frames as separate presses or a tile is rebound.
+    // Time OK here as well, then consume its UP when the timer opened the existing tile menu.
+    private static final long HOLD_OK_MS = 550;
+    private long holdOkDown = -1;
+    private int holdOkPosition = -1;
+    private String holdOkKey;
+    private boolean holdOkFired;
+    private final Runnable holdOkTimer = this::fireHoldOk;
+
+    private static boolean isOkKey(int code) {
+        return code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER
+                || code == KeyEvent.KEYCODE_NUMPAD_ENTER || code == KeyEvent.KEYCODE_BUTTON_A;
+    }
+
+    /** Returns true only when this event belongs to a hold that opened the tile menu. */
+    private boolean holdOk(KeyEvent event) {
+        if (!tileMenuEnabled || !isOkKey(event.getKeyCode())) return false;
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (event.getRepeatCount() == 0) {
+                holdOkFired = false;
+                handler.removeCallbacks(holdOkTimer);
+                holdOkPosition = reordering || openPopup != null || cardPrompt != null ? -1 : focusedTilePosition();
+                holdOkKey = holdOkPosition >= 0 && holdOkPosition < adapter.appCount()
+                        ? adapter.keyAt(holdOkPosition) : null;
+                if (holdOkKey == null || getPackageName().equals(adapter.packageAt(holdOkPosition))) {
+                    holdOkDown = -1;
+                    holdOkKey = null;
+                    return false;
+                }
+                holdOkDown = event.getDownTime();
+                handler.postDelayed(holdOkTimer, HOLD_OK_MS);
+                return false;
+            }
+            if (holdOkFired) return true;
+            if (holdOkDown >= 0 && event.getEventTime() - holdOkDown >= HOLD_OK_MS) {
+                fireHoldOk();
+                return true;
+            }
+            return false;
+        }
+        handler.removeCallbacks(holdOkTimer);
+        holdOkDown = -1;
+        holdOkKey = null;
+        if (!holdOkFired) return false;
+        holdOkFired = false;
+        View focused = getCurrentFocus();
+        if (focused != null) focused.setPressed(false);
+        return true;
+    }
+
+    /** Stops a pending hold when Home loses the remote, so its menu cannot open behind another screen. */
+    private void cancelHoldOk() {
+        handler.removeCallbacks(holdOkTimer);
+        if (holdOkDown >= 0) holdOkFired = true;
+        holdOkDown = -1;
+        holdOkPosition = -1;
+        holdOkKey = null;
+    }
+
+    private void fireHoldOk() {
+        handler.removeCallbacks(holdOkTimer);
+        if (holdOkDown < 0 || holdOkFired || holdOkKey == null) return;
+        holdOkFired = true;
+        if (openPopup != null || reordering) return; // The View long-click may have opened it first.
+        int position = holdOkPosition;
+        if (position < 0 || position >= adapter.appCount() || position != focusedTilePosition()) return;
+        if (!holdOkKey.equals(adapter.keyAt(position))) return; // A rebuild may put another app in this slot.
+        View card = getCurrentFocus();
+        if (card != null) card.setPressed(false);
+        onTileLongPress(position, card);
+    }
+
     /**
      * Hold OK on an app: the same side panel as Inputs, titled with the app's name. Open starts it, Move picks it up
      * in reorder mode, App info opens the TV's page for it, Uninstall (only for apps the owner installed) asks the
@@ -3318,7 +3404,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public void onTileLongPress(int position, View card) {
-        if (reordering) return;
+        if (reordering || openPopup != null) return;
         String key = adapter.keyAt(position);
         String pkg = adapter.packageAt(position);
         // Empty dock slots and the Default-home tile carry the launcher's own package: no menu for them.
