@@ -1404,6 +1404,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     resized |= prompt.getVisibility() == View.GONE;
                     prompt.setVisibility(shown);
                 }
+                // Clamp the app name to one line while the PREVIEW/CONFIRM caption is shown so that
+                // a two-line name never pushes the caption into the Done-button area.
+                TextView name = item.findViewById(R.id.name);
+                if (name != null) name.setMaxLines(shown == View.VISIBLE ? 1 : 2);
                 // Arrows beside the carried tile show which ways it can still move.
                 View left = item.findViewById(R.id.arrowLeft);
                 View right = item.findViewById(R.id.arrowRight);
@@ -1447,6 +1451,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     View v = item.findViewById(id);
                     if (v != null) v.setVisibility(View.GONE);
                 }
+                // Restore two-line names when leaving reorder mode.
+                TextView name = item.findViewById(R.id.name);
+                if (name != null) name.setMaxLines(2);
                 relayoutRow();
             }
         }
